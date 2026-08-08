@@ -1,0 +1,3136 @@
+<!--
+  ╔══════════════════════════════════════════════════════════╗
+  ║   برا السالفة — Barra El-Salfa                         ║
+  ║   Arabic Party Guessing Game                           ║
+  ║   🔥 الآن مع وضع اللعب أونلاين عبر Supabase Realtime   ║
+  ║   Single-file · No build step · Open & play            ║
+  ╚══════════════════════════════════════════════════════════╝
+  Supports two game modes:
+    • الوضع التقليدي — One player sees no word at all
+    • الوضع الذهني — One player receives a different, related word
+  ─────────────────────────────────────────────────────────
+  🟢 v4.0 — ONLINE MULTIPLAYER with Supabase Realtime
+  🟢 Create/Join rooms · Live player list · Ready status
+  🟢 Distributed role reveal · Interactive Q&A with typing
+  🟢 Live voting · Suspense sync · Second chance · Leaderboard
+  🔵 Local pass-and-play mode preserved (v3.0)
+-->
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover, maximum-scale=1.0">
+    <title>برا السالفة — Barra El-Salfa</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com">
+    </script>
+    <script src="https://unpkg.com/lucide@latest">
+    </script>
+    <!-- 🔵 Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+    </script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'bg-root': '#04070d',
+                        'bg-layer': '#080c18',
+                        'bg-card': '#0c1124',
+                        'glass': 'rgba(255,255,255,0.03)',
+                        'cyan-neon': '#00e0ff',
+                        'magenta-neon': '#ff2d6e',
+                        'lime-neon': '#a8ff5a',
+                        'gold-neon': '#ffd54f',
+                        'purple-neon': '#b44dff',
+                        'text-primary': '#e6ecf7',
+                        'text-muted': '#8892a6',
+                        'text-dim': '#525b6e',
+                    },
+                    fontFamily: {
+                        'tajawal': ['Tajawal', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+                    },
+                    animation: {
+                        'screen-in': 'screenIn 300ms cubic-bezier(0.2,0.9,0.2,1) both',
+                        'float-up': 'floatUp linear infinite',
+                        'pulse-arr': 'pulseArr 0.9s ease-in-out infinite',
+                        'suspense': 'suspPulse 1.15s ease-in-out infinite',
+                        'toast-up': 'toastUp 0.35s cubic-bezier(0.2,0.9,0.2,1) both',
+                        'pulse-glow': 'pulseGlow 1.8s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        screenIn: { 'from': { opacity: '0', transform: 'translateY(20px)' }, 'to': { opacity: '1',
+                                transform: 'translateY(0)' } },
+                        floatUp: { '0%': { transform: 'translateY(110vh) scale(0)', opacity: '0' }, '6%': { opacity: '0.7' },
+                            '75%': { opacity: '0.06' }, '100%': { transform: 'translateY(-16vh) scale(1.5)',
+                                opacity: '0' } },
+                        pulseArr: { '0%,100%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.28)' } },
+                        suspPulse: { '0%,100%': { boxShadow: '0 0 28px rgba(255,45,110,0.04)' },
+                            '50%': { boxShadow: '0 0 85px rgba(255,45,110,0.28), 0 0 150px rgba(255,45,110,0.1)' } },
+                        toastUp: { 'from': { opacity: '0', transform: 'translateX(-50%) translateY(24px)' },
+                        'to': { opacity: '1', transform: 'translateX(-50%) translateY(0)' } },
+                        pulseGlow: { '0%,100%': { boxShadow: '0 0 20px rgba(0,224,255,0.05)' },
+                            '50%': { boxShadow: '0 0 60px rgba(0,224,255,0.18), 0 0 120px rgba(0,224,255,0.06)' } },
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @media (prefers-reduced-motion:reduce) {
+            .animate-screen-in {
+                animation: none !important;
+                opacity: 1 !important;
+            }
+            .animate-float-up {
+                animation: none !important;
+                opacity: 0 !important;
+            }
+            .animate-pulse-arr {
+                animation: none !important;
+            }
+            .animate-suspense {
+                animation: none !important;
+            }
+            * {
+                transition-duration: 0ms !important;
+            }
+        }
+        html {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-text-size-adjust: 100%;
+            font-size: 16px;
+        }
+        body {
+            font-family: 'Tajawal', system-ui, -apple-system, 'Segoe UI', sans-serif;
+            background: #04070d;
+            min-height: 100vh;
+            min-height: 100dvh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+        .screen {
+            display: none;
+        }
+        .screen.active {
+            display: flex;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+        }
+        .glass-panel-glow {
+            box-shadow: 0 4px 40px rgba(0, 0, 0, 0.5), 0 0 45px rgba(0, 224, 255, 0.04), inset 0 1px 0 rgba(255, 255,
+                    255, 0.03);
+        }
+        .glass-panel-glow-magenta {
+            box-shadow: 0 4px 40px rgba(0, 0, 0, 0.5), 0 0 45px rgba(255, 45, 110, 0.04), inset 0 1px 0 rgba(255, 255,
+                    255, 0.03);
+        }
+        .reveal-scene {
+            perspective: 950px;
+            width: 100%;
+            max-width: 340px;
+            height: 220px;
+        }
+        .reveal-card {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.55s cubic-bezier(0.2, 0.9, 0.2, 1);
+            transform-style: preserve-3d;
+            cursor: pointer;
+        }
+        .reveal-card.flipped {
+            transform: rotateY(180deg);
+        }
+        .reveal-face {
+            position: absolute;
+            inset: 0;
+            border-radius: 28px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 22px;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.08);
+            text-align: center;
+            gap: 10px;
+        }
+        .reveal-front {
+            background: rgba(10, 14, 26, 0.97);
+            z-index: 2;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .reveal-back {
+            background: rgba(6, 9, 18, 0.99);
+            transform: rotateY(180deg);
+            border-color: #00e0ff;
+            box-shadow: 0 0 50px rgba(0, 224, 255, 0.14);
+        }
+        .reveal-back.liar-back {
+            border-color: #ff2d6e;
+            box-shadow: 0 0 50px rgba(255, 45, 110, 0.18);
+        }
+        @media (prefers-reduced-motion:reduce) {
+            .reveal-card {
+                transition: transform 0ms !important;
+            }
+        }
+        .toast-float {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(6, 10, 20, 0.97);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 26px;
+            padding: 10px 22px;
+            font-weight: 700;
+            font-size: 0.88rem;
+            z-index: 10000;
+            animation: toastUp 0.35s cubic-bezier(0.2, 0.9, 0.2, 1) both;
+            pointer-events: none;
+            box-shadow: 0 8px 42px rgba(0, 0, 0, 0.6);
+            white-space: nowrap;
+        }
+        ::-webkit-scrollbar {
+            width: 3px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+        .btn-press:active {
+            transform: scale(0.94);
+        }
+        .glow-text {
+            text-shadow: 0 0 65px rgba(0, 224, 255, 0.55), 0 0 130px rgba(0, 224, 255, 0.22);
+        }
+        #app {
+            max-width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            min-height: 100dvh;
+        }
+        .glass {
+            border-radius: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            background: transparent !important;
+            padding: var(--space-sm) !important;
+        }
+        .screen {
+            padding: var(--space-sm) !important;
+            gap: var(--space-md) !important;
+        }
+        /* Online lobby specific */
+        .room-card {
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 20px;
+            padding: 16px 20px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .room-card:hover {
+            border-color: rgba(0, 224, 255, 0.3);
+            background: rgba(0, 224, 255, 0.04);
+        }
+        .player-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px 6px 10px;
+            border-radius: 40px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .player-chip.ready {
+            border-color: #a8ff5a;
+            background: rgba(168, 255, 90, 0.08);
+        }
+        .player-chip.host {
+            border-color: #ffd54f;
+            background: rgba(255, 213, 79, 0.08);
+        }
+        .online-badge {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #a8ff5a;
+            animation: pulseGlow 1.5s ease-in-out infinite;
+        }
+        .online-badge.offline {
+            background: #525b6e;
+            animation: none;
+        }
+        .qa-message {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 16px;
+            padding: 14px 18px;
+            border-right: 3px solid #00e0ff;
+            margin-bottom: 8px;
+        }
+        .qa-message.answer {
+            border-right-color: #a8ff5a;
+        }
+        .timer-ring {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            border: 3px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1rem;
+            color: #ffd54f;
+        }
+        .timer-ring.warning {
+            border-color: #ff2d6e;
+            color: #ff2d6e;
+        }
+        .mode-selector-online .mode-card {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .mode-selector-online .mode-card:hover {
+            border-color: rgba(180, 77, 255, 0.3);
+        }
+        .mode-selector-online .mode-card.selected {
+            border-color: #b44dff;
+            background: rgba(180, 77, 255, 0.08);
+            box-shadow: 0 0 30px rgba(180, 77, 255, 0.1);
+        }
+        .spectator-question {
+            font-size: 1.1rem;
+            background: rgba(0, 224, 255, 0.04);
+            border: 1px solid rgba(0, 224, 255, 0.08);
+            border-radius: 16px;
+            padding: 16px 20px;
+        }
+        .spectator-answer {
+            font-size: 1.1rem;
+            background: rgba(168, 255, 90, 0.04);
+            border: 1px solid rgba(168, 255, 90, 0.08);
+            border-radius: 16px;
+            padding: 16px 20px;
+            margin-top: 8px;
+        }
+        .vote-option {
+            background: rgba(255, 255, 255, 0.02);
+            border: 2px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            padding: 14px 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            font-weight: 700;
+        }
+        .vote-option:hover {
+            border-color: rgba(255, 45, 110, 0.3);
+            background: rgba(255, 45, 110, 0.04);
+        }
+        .vote-option.selected {
+            border-color: #ff2d6e;
+            background: rgba(255, 45, 110, 0.1);
+            box-shadow: 0 0 30px rgba(255, 45, 110, 0.08);
+        }
+        .vote-option:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .second-chance-option {
+            background: rgba(255, 255, 255, 0.02);
+            border: 2px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            padding: 14px 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            font-weight: 700;
+        }
+        .second-chance-option:hover {
+            border-color: rgba(168, 255, 90, 0.3);
+            background: rgba(168, 255, 90, 0.04);
+        }
+        .second-chance-option.selected {
+            border-color: #a8ff5a;
+            background: rgba(168, 255, 90, 0.1);
+            box-shadow: 0 0 30px rgba(168, 255, 90, 0.08);
+        }
+        .online-lobby-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+        @media (min-width: 480px) {
+            .online-lobby-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body class="text-text-primary flex justify-center items-center min-h-screen min-h-dvh bg-bg-root"
+style="background-image: radial-gradient(ellipse at 20% 10%, rgba(0,224,255,0.035) 0%, transparent 55%), radial-gradient(ellipse at 80% 85%, rgba(255,45,110,0.035) 0%, transparent 55%), radial-gradient(ellipse at 50% 50%, rgba(180,77,255,0.02) 0%, transparent 60%);">
+
+    <!-- Background Particles -->
+    <div id="bg-particles" class="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true"></div>
+
+    <!-- Confetti Canvas -->
+    <canvas id="confetti-canvas" class="hidden fixed inset-0 pointer-events-none z-[9998]"></canvas>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- ═══════════ MAIN APP ═══════════ -->
+    <div id="app" class="relative z-10 w-full max-w-[500px] min-h-screen min-h-dvh flex flex-col mx-auto p-4 md:p-6 md:min-h-0 md:my-3">
+
+        <!-- ═══════════ SCREEN 1: LANDING ═══════════ -->
+        <div id="screen-landing" class="screen active flex-col gap-6 items-center justify-center flex-1 text-center py-12 animate-screen-in">
+            <span class="text-7xl" style="filter:drop-shadow(0 0 30px rgba(0,224,255,0.4));" aria-hidden="true">🔮</span>
+            <h1 class="glow-text font-black text-5xl leading-tight tracking-tight text-white">برا السالفة</h1>
+            <p class="text-text-muted text-lg max-w-[300px]">اللعبة الجماعية المثيرة — اكتشفوا من برا السالفة قبل ما يكتشفكم!</p>
+            <div class="flex flex-col gap-4 w-full max-w-[280px] mt-4">
+                <button id="btn-landing-play" class="btn-press w-full min-h-[54px] bg-cyan-neon text-bg-root font-bold text-lg rounded-3xl flex items-center justify-center gap-3 shadow-lg shadow-cyan-neon/20 border border-cyan-neon transition-all hover:shadow-cyan-neon/40 active:bg-[#1ae8ff]" aria-label="بدء اللعب">
+                    <i data-lucide="play-circle" class="w-5 h-5"></i> بدء اللعب
+                </button>
+                <button id="btn-landing-how" class="btn-press w-full min-h-[54px] bg-transparent text-text-primary font-bold text-lg rounded-3xl flex items-center justify-center gap-3 border border-white/15 transition-all hover:border-cyan-neon hover:bg-white/5 active:bg-white/8" aria-label="كيف ألعب؟">
+                    <i data-lucide="help-circle" class="w-5 h-5"></i> كيف ألعب؟
+                </button>
+            </div>
+            <p class="text-text-dim text-xs mt-4">تحتاج ٣ لاعبين على الأقل • وضعان للعب</p>
+        </div>
+
+        <!-- ═══════════ SCREEN 2: MODE PICKER (NEW) ═══════════ -->
+        <div id="screen-modepicker" class="screen flex-col gap-6 items-center justify-center flex-1 text-center animate-screen-in">
+            <div class="glass-panel glass-panel-glow rounded-2xl p-6 flex flex-col gap-6 w-full max-w-[400px]">
+                <h2 class="font-extrabold text-xl">🎮 اختر طريقة اللعب</h2>
+                <p class="text-text-muted text-sm">اختر بين اللعب المحلي أو عبر الإنترنت مع الأصدقاء</p>
+                <div class="flex flex-col gap-4 w-full">
+                    <button id="btn-mode-local" class="btn-press w-full min-h-[64px] bg-white/5 border-2 border-white/10 rounded-2xl flex items-center gap-4 px-5 hover:border-cyan-neon hover:bg-cyan-neon/5 transition-all text-start">
+                        <span class="text-3xl">📱</span>
+                        <div><span class="font-extrabold block">لعب محلي (Pass & Play)</span><span class="text-text-dim text-xs">على جهاز واحد، مرر الهاتف بين اللاعبين</span></div>
+                    </button>
+                    <button id="btn-mode-online" class="btn-press w-full min-h-[64px] bg-white/5 border-2 border-white/10 rounded-2xl flex items-center gap-4 px-5 hover:border-purple-neon hover:bg-purple-neon/5 transition-all text-start">
+                        <span class="text-3xl">🌐</span>
+                        <div><span class="font-extrabold block">لعب أونلاين</span><span class="text-text-dim text-xs">كل لاعب على جهازه، عبر الإنترنت</span></div>
+                    </button>
+                </div>
+                <button id="btn-mode-back" class="btn-press w-full min-h-[46px] bg-transparent text-text-muted font-bold text-sm rounded-2xl border border-white/10 transition-all hover:border-white/20 active:bg-white/5">← رجوع</button>
+            </div>
+        </div>
+
+        <!-- ═══════════ SCREEN 3: LOCAL SETUP (existing) ═══════════ -->
+        <div id="screen-setup" class="screen flex-col gap-6 flex-1 animate-screen-in">
+            <div class="glass-panel glass-panel-glow rounded-2xl p-6 flex flex-col gap-6 flex-1">
+                <div class="flex items-center gap-4">
+                    <button id="btn-setup-back" class="btn-press w-11 h-11 rounded-full bg-transparent border border-white/15 flex items-center justify-center text-text-primary transition-all hover:border-cyan-neon active:bg-white/8 shrink-0" aria-label="رجوع"><i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+                    <h2 class="flex-1 font-extrabold text-xl">إعداد اللعبة المحلية</h2>
+                    <span id="setup-count-badge" class="bg-cyan-neon/15 text-cyan-neon font-bold text-xs px-3 py-1 rounded-full">0 لاعبين</span>
+                </div>
+                <div class="flex gap-3">
+                    <input id="input-player-name" class="flex-1 min-h-[46px] bg-white/4 border border-white/10 rounded-lg px-4 text-text-primary font-tajawal text-sm outline-none transition-all focus:border-cyan-neon focus:shadow-[0_0_0_3px_rgba(0,224,255,0.06)] placeholder:text-text-dim" type="text" placeholder="اكتب اسم اللاعب..." maxlength="16" autocomplete="off" aria-label="اسم اللاعب">
+                    <button id="btn-add-player" class="btn-press min-h-[46px] px-5 bg-cyan-neon text-bg-root font-bold text-sm rounded-lg flex items-center gap-2 border border-cyan-neon shadow-lg shadow-cyan-neon/15 active:shadow-cyan-neon/40 transition-all shrink-0" aria-label="أضف لاعب"><i data-lucide="plus" class="w-4 h-4"></i> أضف</button>
+                </div>
+                <div id="players-chips" class="flex flex-wrap gap-3 min-h-[36px]"></div>
+                <p id="setup-hint" class="text-text-dim text-xs">الحد الأدنى ٣ لاعبين</p>
+                <div class="flex flex-col gap-3">
+                    <p class="font-bold text-sm">اختر الفئة:</p>
+                    <div id="cat-grid" class="grid grid-cols-auto-fill gap-3" style="grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));" role="radiogroup"></div>
+                </div>
+                <div class="flex flex-col gap-3">
+                    <p class="font-bold text-sm">اختر وضع اللعبة:</p>
+                    <div class="flex flex-col gap-3" id="mode-selector">
+                        <div class="mode-card bg-white/[0.022] border-2 border-white/5 rounded-2xl p-4 cursor-pointer transition-all hover:border-purple-neon hover:bg-purple-neon/5 flex flex-col gap-2 text-start" data-mode="traditional" tabindex="0" role="radio">
+                            <span class="text-2xl">🎭</span><span class="font-extrabold">الوضع التقليدي (برا السالفة)</span>
+                            <span class="text-text-dim text-xs">لاعب واحد لا يعرف الكلمة السرية إطلاقاً</span>
+                        </div>
+                        <div class="mode-card bg-white/[0.022] border-2 border-white/5 rounded-2xl p-4 cursor-pointer transition-all hover:border-purple-neon hover:bg-purple-neon/5 flex flex-col gap-2 text-start" data-mode="mindbending" tabindex="0" role="radio">
+                            <span class="text-2xl">🧠</span><span class="font-extrabold">الوضع الذهني (سالفة ثانية)</span>
+                            <span class="text-text-dim text-xs">لاعب واحد يحصل على كلمة مختلفة ومشابهة</span>
+                        </div>
+                    </div>
+                </div>
+                <button id="btn-setup-start" class="btn-press w-full min-h-[54px] bg-cyan-neon text-bg-root font-bold text-lg rounded-3xl flex items-center justify-center gap-2 border border-cyan-neon shadow-lg shadow-cyan-neon/20 transition-all disabled:opacity-30 disabled:grayscale disabled:pointer-events-none mt-2" disabled aria-label="ابدأ اللعبة">🚀 ابدأ اللعبة</button>
+            </div>
+        </div>
+
+        <!-- ═══════════ SCREEN 4: ONLINE LOBBY ═══════════ -->
+        <div id="screen-online-lobby" class="screen flex-col gap-4 flex-1 animate-screen-in">
+            <div class="glass-panel glass-panel-glow rounded-2xl p-5 flex flex-col gap-5 flex-1">
+                <!-- Header -->
+                <div class="flex items-center gap-3 flex-wrap">
+                    <button id="btn-online-back" class="btn-press w-10 h-10 rounded-full bg-transparent border border-white/15 flex items-center justify-center text-text-primary transition-all hover:border-cyan-neon active:bg-white/8 shrink-0" aria-label="رجوع"><i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+                    <h2 class="flex-1 font-extrabold text-lg">🌐 الأونلاين</h2>
+                    <span id="online-status-badge" class="text-xs bg-cyan-neon/15 text-cyan-neon px-3 py-1 rounded-full flex items-center gap-2"><span class="online-badge"></span> متصل</span>
+                </div>
+
+                <!-- Tabs: Create / Join / Public -->
+                <div class="flex gap-2 border-b border-white/5 pb-2">
+                    <button class="online-tab-btn btn-press px-4 py-2 text-sm font-bold rounded-xl transition-all bg-cyan-neon/10 text-cyan-neon" data-tab="create">➕ إنشاء</button>
+                    <button class="online-tab-btn btn-press px-4 py-2 text-sm font-bold rounded-xl transition-all text-text-muted hover:text-text-primary" data-tab="join">🔑 انضمام</button>
+                    <button class="online-tab-btn btn-press px-4 py-2 text-sm font-bold rounded-xl transition-all text-text-muted hover:text-text-primary" data-tab="public">📋 غرف عامة</button>
+                </div>
+
+                <!-- Tab: Create -->
+                <div id="online-tab-create" class="online-tab-content flex flex-col gap-4">
+                    <div class="flex flex-col gap-3">
+                        <label class="text-sm font-bold">اسم الغرفة</label>
+                        <input id="online-room-name" class="min-h-[46px] bg-white/4 border border-white/10 rounded-lg px-4 text-text-primary font-tajawal text-sm outline-none transition-all focus:border-cyan-neon" type="text" placeholder="غرفة الأصدقاء" maxlength="30" autocomplete="off">
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <label class="text-sm font-bold flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="online-room-public" checked class="accent-cyan-neon"> عامة
+                        </label>
+                        <span class="text-text-dim text-xs">(الغرف العامة تظهر للجميع)</span>
+                    </div>
+                    <div class="flex flex-col gap-2 bg-white/5 rounded-xl p-4">
+                        <span class="text-text-dim text-xs">🔑 كود الغرفة (سيتم إنشاؤه تلقائياً)</span>
+                        <span id="online-room-code-display" class="font-mono text-2xl font-extrabold text-cyan-neon tracking-[0.3em]">—— ——</span>
+                    </div>
+                    <button id="btn-online-create" class="btn-press w-full min-h-[54px] bg-cyan-neon text-bg-root font-bold text-lg rounded-3xl flex items-center justify-center gap-2 border border-cyan-neon shadow-lg shadow-cyan-neon/20 transition-all">🚀 إنشاء غرفة</button>
+                    <p id="online-create-hint" class="text-text-dim text-xs text-center">ستكون المضيف وستتحكم ببدء اللعبة</p>
+                </div>
+
+                <!-- Tab: Join -->
+                <div id="online-tab-join" class="online-tab-content hidden flex-col gap-4">
+                    <div class="flex flex-col gap-3">
+                        <label class="text-sm font-bold">أدخل كود الغرفة (6 أرقام)</label>
+                        <div class="flex gap-3">
+                            <input id="online-join-code" class="flex-1 min-h-[46px] bg-white/4 border border-white/10 rounded-lg px-4 text-text-primary font-mono text-lg text-center outline-none transition-all focus:border-cyan-neon" type="text" placeholder="مثال: 123456" maxlength="6" inputmode="numeric" autocomplete="off">
+                            <button id="btn-online-join" class="btn-press min-h-[46px] px-6 bg-purple-neon text-white font-bold rounded-lg flex items-center gap-2 border border-purple-neon shadow-lg shadow-purple-neon/15 transition-all">انضمام</button>
+                        </div>
+                    </div>
+                    <p class="text-text-dim text-xs text-center">أدخل الكود الذي شاركه معك المضيف</p>
+                </div>
+
+                <!-- Tab: Public -->
+                <div id="online-tab-public" class="online-tab-content hidden flex-col gap-3">
+                    <p class="text-text-dim text-xs">الغرف العامة المتاحة حالياً</p>
+                    <div id="online-public-list" class="flex flex-col gap-3 max-h-[260px] overflow-y-auto">
+                        <div class="text-text-dim text-sm text-center py-8">جارٍ تحميل الغرف...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════ SCREEN 5: ONLINE ROOM (Lobby inside room) ═══════════ -->
+        <div id="screen-online-room" class="screen flex-col gap-4 flex-1 animate-screen-in">
+            <div class="glass-panel glass-panel-glow rounded-2xl p-5 flex flex-col gap-5 flex-1">
+                <div class="flex items-center gap-3 flex-wrap">
+                    <button id="btn-online-room-leave" class="btn-press w-10 h-10 rounded-full bg-transparent border border-white/15 flex items-center justify-center text-text-primary transition-all hover:border-magenta-neon active:bg-white/8 shrink-0" aria-label="مغادرة"><i data-lucide="log-out" class="w-4 h-4"></i></button>
+                    <div class="flex-1">
+                        <h2 id="online-room-title" class="font-extrabold text-lg">غرفة: —</h2>
+                        <span id="online-room-code-badge" class="font-mono text-cyan-neon text-sm">—— ——</span>
+                    </div>
+                    <span id="online-room-player-count" class="bg-white/5 px-3 py-1 rounded-full text-sm">0 لاعب</span>
+                </div>
+
+                <!-- Host controls -->
+                <div id="online-host-controls" class="hidden flex flex-col gap-3 bg-cyan-neon/5 border border-cyan-neon/10 rounded-xl p-4">
+                    <p class="text-sm font-bold text-cyan-neon">👑 أنت المضيف</p>
+                    <div class="flex flex-wrap gap-3">
+                        <div class="flex-1 min-w-[140px]">
+                            <label class="text-xs text-text-dim">الفئة</label>
+                            <select id="online-host-category" class="w-full min-h-[40px] bg-white/4 border border-white/10 rounded-lg px-3 text-text-primary text-sm outline-none focus:border-cyan-neon"></select>
+                        </div>
+                        <div class="flex-1 min-w-[140px]">
+                            <label class="text-xs text-text-dim">الوضع</label>
+                            <select id="online-host-mode" class="w-full min-h-[40px] bg-white/4 border border-white/10 rounded-lg px-3 text-text-primary text-sm outline-none focus:border-cyan-neon">
+                                <option value="traditional">🎭 تقليدي</option>
+                                <option value="mindbending">🧠 ذهني</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button id="btn-online-host-start" class="btn-press w-full min-h-[48px] bg-lime-neon text-bg-root font-bold rounded-2xl border border-lime-neon shadow-lg shadow-lime-neon/15 transition-all disabled:opacity-30 disabled:grayscale disabled:pointer-events-none">🚀 بدء اللعبة</button>
+                    <p id="online-host-hint" class="text-text-dim text-xs">يجب أن يكون جميع اللاعبين جاهزين</p>
+                </div>
+
+                <!-- Player list -->
+                <div class="flex-1">
+                    <p class="text-sm font-bold mb-3">👥 اللاعبون</p>
+                    <div id="online-player-list" class="flex flex-wrap gap-3"></div>
+                </div>
+
+                <!-- Player ready toggle -->
+                <div class="flex gap-3 items-center">
+                    <button id="btn-online-ready" class="btn-press flex-1 min-h-[48px] bg-white/5 border-2 border-white/10 rounded-2xl font-bold text-sm transition-all hover:border-lime-neon hover:bg-lime-neon/5">⬜ غير جاهز</button>
+                    <span id="online-ready-hint" class="text-text-dim text-xs">اضغط للتجهز</span>
+                </div>
+
+                <!-- Host warning if not ready -->
+                <div id="online-room-waiting" class="text-center text-text-dim text-sm py-2">⏳ في انتظار تجهز جميع اللاعبين...</div>
+            </div>
+        </div>
+
+        <!-- ═══════════ SCREEN 6: ONLINE REVEAL ═══════════ -->
+        <div id="screen-online-reveal" class="screen flex-col gap-6 items-center flex-1 justify-center text-center animate-screen-in">
+            <div class="glass-panel glass-panel-glow rounded-2xl p-6 flex flex-col gap-6 items-center w-full">
+                <h3 class="font-extrabold text-lg">🔮 دورك في هذه الجولة</h3>
+                <div id="online-reveal-content" class="reveal-scene mx-auto">
+                    <div class="reveal-card flipped" style="pointer-events:none;">
+                        <div class="reveal-face reveal-front"></div>
+                        <div class="reveal-face reveal-back" id="online-reveal-back">
+                            <span class="text-2xl font-black text-cyan-neon">???</span>
+                            <span class="text-text-dim text-xs">جاري تحميل دورك...</span>
+                        </div>
+                    </div>
+                </div>
+                <button id="btn-online-reveal-ready" class="btn-press min-h-[54px] px-8 bg-lime-neon text-bg-root font-bold text-lg rounded-3xl flex items-center justify-center gap-2 border border-lime-neon shadow-lg shadow-lime-neon/15 transition-all">✅ جاهز للمرحلة التالية</button>
+                <p id="online-reveal-progress" class="text-text-dim text-xs"></p>
+            </div>
+        </div>
+
+        <!-- ═══════════ SCREEN 7: ONLINE QUESTIONING ═══════════ -->
+        <div id="screen-online-qa" class="screen flex-col gap-4 flex-1 animate-screen-in">
+            <div class="glass-panel glass-panel-glow rounded-2xl p-5 flex flex-col gap-5 flex-1">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                    <span id="online-qa-round" class="bg-gold-neon/15 text-gold-neon font-bold text-sm px-4 py-1 rounded-full">الجولة 1</span>
+                    <span id="online-qa-role" class="text-text-muted text-sm">🎤 سائل</span>
+                </div>
+
+                <!-- Asker view -->
+                <div id="online-qa-asker-view" class="hidden flex flex-col gap-3">
+                    <p id="online-qa-asker-prompt" class="text-lg font-bold text-gold-neon">اسأل سؤالك</p>
+                    <textarea id="online-qa-question-input" class="w-full min-h-[80px] bg-white/4 border border-white/10 rounded-lg p-3 text-text-primary text-sm outline-none focus:border-cyan-neon resize-none" placeholder="اكتب سؤالك هنا..." maxlength="200"></textarea>
+                    <div class="flex items-center gap-4">
+                        <button id="btn-online-qa-send-q" class="btn-press px-6 py-3 bg-cyan-neon text-bg-root font-bold rounded-2xl border border-cyan-neon shadow-lg shadow-cyan-neon/15 transition-all">إرسال السؤال 📤</button>
+                        <span id="online-qa-timer" class="timer-ring">45</span>
+                    </div>
+                </div>
+
+                <!-- Respondent view -->
+                <div id="online-qa-respondent-view" class="hidden flex-col gap-3">
+                    <p id="online-qa-respondent-prompt" class="text-lg font-bold text-lime-neon">أجب على السؤال</p>
+                    <div id="online-qa-received-q" class="spectator-question text-text-primary">السؤال سيظهر هنا...</div>
+                    <textarea id="online-qa-answer-input" class="w-full min-h-[80px] bg-white/4 border border-white/10 rounded-lg p-3 text-text-primary text-sm outline-none focus:border-cyan-neon resize-none" placeholder="اكتب إجابتك هنا..." maxlength="200" disabled></textarea>
+                    <div class="flex items-center gap-4">
+                        <button id="btn-online-qa-send-a" class="btn-press px-6 py-3 bg-lime-neon text-bg-root font-bold rounded-2xl border border-lime-neon shadow-lg shadow-lime-neon/15 transition-all" disabled>إرسال الإجابة 📤</button>
+                        <span id="online-qa-timer-respondent" class="timer-ring">45</span>
+                    </div>
+                </div>
+
+                <!-- Spectator view -->
+                <div id="online-qa-spectator-view" class="hidden flex-col gap-3">
+                    <p class="text-text-dim text-sm">👀 تشاهد الأسئلة والأجوبة</p>
+                    <div id="online-qa-spectator-content" class="flex flex-col gap-3 max-h-[300px] overflow-y-auto">
+                        <div class="text-text-dim text-sm text-center py-4">في انتظار السؤال التالي...</div>
+                    </div>
+                </div>
+
+                <!-- Waiting for next round -->
+                <div id="online-qa-waiting" class="hidden text-center text-text-dim py-4">⏳ في انتظار انتهاء الجولة الحالية...</div>
+
+                <!-- Next round / Vote transition -->
+                <button id="btn-online-qa-next" class="hidden btn-press w-full min-h-[48px] bg-cyan-neon text-bg-root font-bold rounded-2xl border border-cyan-neon shadow-lg shadow-cyan-neon/15 transition-all">➡️ السؤال التالي</button>
+                <button id="btn-online-qa-to-vote" class="hidden btn-press w-full min-h-[48px] bg-magenta-neon text-white font-bold rounded-2xl border border-magenta-neon shadow-lg shadow-magenta-neon/15 transition-all">🗳️ الانتقال للتصويت</button>
+            </div>
+        </div>
+
+        <!-- ═══════════ SCREEN 8: ONLINE VOTING ═══════════ -->
+        <div id="screen-online-voting" class="screen flex-col gap-4 flex-1 animate-screen-in">
+            <div class="glass-panel glass-panel-glow-magenta rounded-2xl p-5 flex flex-col gap-5 flex-1">
+                <h2 class="font-extrabold text-xl text-center">🗳️ التصويت السري</h2>
+                <p id="online-voting-instruction" class="text-text-muted text-sm text-center">صوّت على من تعتقد أنه برا السالفة</p>
+                <div id="online-voting-options" class="flex flex-col gap-3 w-full"></div>
+                <p id="online-voting-status" class="text-text-dim text-xs text-center">في انتظار تصويت الجميع...</p>
+                <button id="btn-online-voting-done" class="hidden btn-press w-full min-h-[48px] bg-magenta-neon text-white font-bold rounded-2xl border border-magenta-neon shadow-lg shadow-magenta-neon/15 transition-all">✅ اكتمل التصويت — اكشف النتيجة</button>
+            </div>
+        </div>
+
+        <!-- ═══════════ SCREEN 9: ONLINE SUSPENSE ═══════════ -->
+        <div id="screen-online-suspense" class="screen flex-col gap-6 items-center flex-1 justify-center text-center animate-screen-in">
+            <div class="glass-panel glass-panel-glow-magenta animate-suspense rounded-2xl p-6 flex flex-col gap-6 items-center w-full">
+                <h2 id="online-suspense-headline" class="font-extrabold text-xl">🔮 لحظة الحقيقة...</h2>
+                <div id="online-suspense-content" class="flex flex-col gap-4 w-full"></div>
+                <button id="btn-online-suspense-continue" class="hidden btn-press min-h-[48px] px-8 bg-cyan-neon text-bg-root font-bold rounded-2xl border border-cyan-neon shadow-lg shadow-cyan-neon/15 transition-all">المتابعة ➡️</button>
+            </div>
+        </div>
+
+        <!-- ═══════════ SCREEN 10: ONLINE SECOND CHANCE ═══════════ -->
+        <div id="screen-online-secondchance" class="screen flex-col gap-4 flex-1 animate-screen-in">
+            <div class="glass-panel glass-panel-glow rounded-2xl p-5 flex flex-col gap-5 flex-1">
+                <h2 class="font-extrabold text-xl text-center">🎯 فرصة الإنقاذ!</h2>
+                <p id="online-sc-prompt" class="text-text-muted text-center"></p>
+                <div id="online-sc-options" class="flex flex-col gap-3 w-full"></div>
+                <button id="btn-online-sc-confirm" class="hidden btn-press w-full min-h-[48px] bg-lime-neon text-bg-root font-bold rounded-2xl border border-lime-neon shadow-lg shadow-lime-neon/15 transition-all">تأكيد الإجابة ✓</button>
+                <p id="online-sc-result" class="text-text-dim text-xs text-center"></p>
+                <button id="btn-online-sc-next" class="hidden btn-press w-full min-h-[48px] bg-cyan-neon text-bg-root font-bold rounded-2xl border border-cyan-neon shadow-lg shadow-cyan-neon/15 transition-all">عرض النتائج →</button>
+            </div>
+        </div>
+
+        <!-- ═══════════ SCREEN 11: ONLINE LEADERBOARD ═══════════ -->
+        <div id="screen-online-leaderboard" class="screen flex-col gap-4 flex-1 animate-screen-in">
+            <div class="glass-panel glass-panel-glow rounded-2xl p-5 flex flex-col gap-5 flex-1">
+                <h2 id="online-lb-headline" class="font-extrabold text-xl text-center">🏆 النتائج النهائية</h2>
+                <div id="online-lb-content" class="flex flex-col gap-4 w-full flex-1 overflow-y-auto"></div>
+                <div class="flex flex-col gap-3">
+                    <button id="btn-online-lb-newround" class="btn-press w-full min-h-[48px] bg-cyan-neon text-bg-root font-bold rounded-2xl border border-cyan-neon shadow-lg shadow-cyan-neon/15 transition-all">🔄 جولة جديدة</button>
+                    <button id="btn-online-lb-leave" class="btn-press w-full min-h-[48px] bg-transparent text-text-muted font-bold rounded-2xl border border-white/10 transition-all hover:border-white/20 active:bg-white/5">🚪 مغادرة الغرفة</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════ LOCAL LEGACY SCREENS (keep for local mode) ═══════════ -->
+        <!-- Screen: Secret (local) -->
+        <div id="screen-secret" class="screen flex-col gap-6 items-center flex-1 justify-center text-center animate-screen-in">
+            <div class="glass-panel glass-panel-glow rounded-2xl p-6 flex flex-col gap-6 items-center w-full">
+                <h3 id="secret-title" class="font-extrabold text-lg">📱 مرر الهاتف إلى...</h3>
+                <p id="secret-player-name" class="text-xl font-extrabold"></p>
+                <p class="text-text-dim text-xs">🔒 تأكد من عدم رؤية أحد آخر للشاشة</p>
+                <div id="reveal-scene-container" class="reveal-scene mx-auto"></div>
+                <button id="btn-secret-next" class="hidden btn-press min-h-[54px] px-8 bg-cyan-neon text-bg-root font-bold text-lg rounded-3xl flex items-center justify-center gap-2 border border-cyan-neon shadow-lg shadow-cyan-neon/20 transition-all" aria-label="التالي">التالي ←</button>
+                <p id="secret-progress" class="text-text-dim text-xs"></p>
+            </div>
+        </div>
+
+        <!-- Screen: Questioning (local) -->
+        <div id="screen-questioning" class="screen flex-col gap-6 items-center flex-1 justify-center text-center animate-screen-in">
+            <div class="glass-panel glass-panel-glow rounded-2xl p-6 flex flex-col gap-6 items-center w-full">
+                <h2 class="font-extrabold text-xl">🎤 مرحلة الأسئلة</h2>
+                <span id="q-round-badge" class="bg-gold-neon/15 text-gold-neon font-bold text-base px-4 py-1 rounded-full">الجولة 1 من 7</span>
+                <div id="q-asker-row" class="flex items-center justify-center gap-6 flex-wrap font-bold">
+                    <span id="q-asker-badge" class="bg-white/4 border-2 border-white/10 rounded-2xl px-5 py-3 flex items-center gap-3 font-extrabold"></span>
+                    <span class="text-2xl text-gold-neon animate-pulse-arr">➡️</span>
+                    <span id="q-target-badge" class="bg-white/4 border-2 border-white/10 rounded-2xl px-5 py-3 flex items-center gap-3 font-extrabold"></span>
+                </div>
+                <p id="q-prompt" class="text-xl font-bold text-gold-neon"></p>
+                <div class="flex items-center gap-3 justify-center"><i data-lucide="mic" class="w-5 h-5 text-gold-neon"></i><span class="text-text-muted text-sm">اسأل سؤالاً واحداً ذكياً</span></div>
+                <button id="btn-q-next" class="btn-press min-h-[54px] px-8 bg-cyan-neon text-bg-root font-bold text-lg rounded-3xl flex items-center justify-center gap-2 border border-cyan-neon shadow-lg shadow-cyan-neon/20 transition-all" aria-label="السؤال التالي">السؤال التالي <i data-lucide="arrow-left" class="w-4 h-4"></i></button>
+                <button id="btn-q-to-vote" class="hidden btn-press min-h-[54px] px-8 bg-magenta-neon text-white font-bold text-lg rounded-3xl flex items-center justify-center gap-2 border border-magenta-neon shadow-lg shadow-magenta-neon/20 transition-all" aria-label="الانتقال للتصويت">🗳️ الانتقال للتصويت</button>
+            </div>
+        </div>
+
+        <!-- Screen: Voting (local) -->
+        <div id="screen-voting" class="screen flex-col gap-6 items-center flex-1 justify-center text-center animate-screen-in">
+            <div class="glass-panel glass-panel-glow-magenta rounded-2xl p-6 flex flex-col gap-6 items-center w-full">
+                <h2 class="font-extrabold text-xl">🗳️ التصويت السري</h2>
+                <p id="voting-voter-name" class="text-xl font-extrabold"></p>
+                <p class="text-text-dim text-xs">🔒 مرر الهاتف — كل لاعب يصوّت بسرية</p>
+                <div id="voting-options" class="flex flex-col gap-3 w-full max-w-[300px] self-center"></div>
+                <p id="voting-progress" class="text-text-dim text-xs"></p>
+                <button id="btn-voting-done" class="hidden btn-press min-h-[54px] px-8 bg-magenta-neon text-white font-bold text-lg rounded-3xl flex items-center justify-center gap-2 border border-magenta-neon shadow-lg shadow-magenta-neon/20 transition-all" aria-label="اكتمل التصويت">✅ اكتمل التصويت — اكشف النتيجة</button>
+            </div>
+        </div>
+
+        <!-- Screen: Suspense (local) -->
+        <div id="screen-suspense" class="screen flex-col gap-6 items-center flex-1 justify-center text-center animate-screen-in">
+            <div class="glass-panel glass-panel-glow-magenta animate-suspense rounded-2xl p-6 flex flex-col gap-6 items-center w-full">
+                <h2 id="suspense-headline" class="font-extrabold text-xl">🔮 لحظة الحقيقة...</h2>
+                <div id="suspense-content" class="flex flex-col gap-4 w-full"></div>
+            </div>
+        </div>
+
+        <!-- Screen: Second Chance (local) -->
+        <div id="screen-secondchance" class="screen flex-col gap-6 items-center flex-1 justify-center text-center animate-screen-in">
+            <div class="glass-panel glass-panel-glow rounded-2xl p-6 flex flex-col gap-6 items-center w-full">
+                <h2 class="font-extrabold text-xl">🎯 فرصة الإنقاذ!</h2>
+                <p id="sc-prompt" class="text-text-muted"></p>
+                <p class="font-extrabold text-gold-neon">ما هي الكلمة السرية الحقيقية؟</p>
+                <div id="sc-options" class="flex flex-col gap-3 w-full max-w-[300px] self-center"></div>
+                <button id="btn-sc-confirm" class="hidden btn-press min-h-[54px] px-8 bg-lime-neon text-bg-root font-bold text-lg rounded-3xl flex items-center justify-center gap-2 border border-lime-neon shadow-lg shadow-lime-neon/15 transition-all" aria-label="تأكيد الإجابة">تأكيد الإجابة ✓</button>
+                <p id="sc-result" class="text-text-dim text-xs"></p>
+                <button id="btn-sc-next" class="hidden btn-press min-h-[54px] px-8 bg-cyan-neon text-bg-root font-bold text-lg rounded-3xl flex items-center justify-center gap-2 border border-cyan-neon shadow-lg shadow-cyan-neon/20 transition-all" aria-label="التالي">عرض النتائج ←</button>
+            </div>
+        </div>
+
+        <!-- Screen: Leaderboard (local) -->
+        <div id="screen-leaderboard" class="screen flex-col gap-6 flex-1 text-center animate-screen-in">
+            <div class="glass-panel glass-panel-glow rounded-2xl p-6 flex flex-col gap-6 flex-1">
+                <h2 id="lb-headline" class="font-extrabold text-xl">🏆 النتائج النهائية</h2>
+                <div id="lb-content" class="flex flex-col gap-4 w-full"></div>
+                <div id="lb-scores" class="flex flex-col gap-3 w-full"></div>
+                <button id="btn-new-round" class="btn-press w-full min-h-[54px] bg-cyan-neon text-bg-root font-bold text-lg rounded-3xl flex items-center justify-center gap-2 border border-cyan-neon shadow-lg shadow-cyan-neon/20 transition-all mt-2" aria-label="جولة جديدة">🔄 جولة جديدة</button>
+                <button id="btn-end-game" class="btn-press w-full min-h-[54px] bg-transparent text-text-primary font-bold text-lg rounded-3xl flex items-center justify-center gap-2 border border-white/15 transition-all hover:border-cyan-neon active:bg-white/5" aria-label="إنهاء اللعبة">🏠 القائمة الرئيسية</button>
+            </div>
+        </div>
+
+        <!-- Screen: New Round (local) -->
+        <div id="screen-newround" class="screen flex-col gap-6 flex-1 text-center animate-screen-in">
+            <div class="glass-panel glass-panel-glow rounded-2xl p-6 flex flex-col gap-6 flex-1">
+                <h3 class="font-extrabold text-xl">🔄 اختر فئة الجولة الجديدة</h3>
+                <div id="newround-cat-grid" class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));" role="radiogroup"></div>
+                <div class="flex flex-col gap-3 text-start">
+                    <p class="font-bold text-sm">الوضع:</p>
+                    <div class="flex flex-col gap-3" id="newround-mode-selector">
+                        <div class="mode-card bg-white/[0.022] border-2 border-white/5 rounded-2xl p-4 cursor-pointer transition-all hover:border-purple-neon hover:bg-purple-neon/5 flex flex-col gap-2" data-mode="traditional" tabindex="0" role="radio">
+                            <span class="text-2xl">🎭</span><span class="font-extrabold">تقليدي</span>
+                            <span class="text-text-dim text-xs">لاعب واحد لا يعرف الكلمة</span>
+                        </div>
+                        <div class="mode-card bg-white/[0.022] border-2 border-white/5 rounded-2xl p-4 cursor-pointer transition-all hover:border-purple-neon hover:bg-purple-neon/5 flex flex-col gap-2" data-mode="mindbending" tabindex="0" role="radio">
+                            <span class="text-2xl">🧠</span><span class="font-extrabold">ذهني</span>
+                            <span class="text-text-dim text-xs">لاعب واحد يحصل على كلمة مختلفة</span>
+                        </div>
+                    </div>
+                </div>
+                <button id="btn-newround-start" class="btn-press w-full min-h-[54px] bg-cyan-neon text-bg-root font-bold text-lg rounded-3xl flex items-center justify-center gap-2 border border-cyan-neon shadow-lg shadow-cyan-neon/20 transition-all disabled:opacity-30 disabled:grayscale disabled:pointer-events-none mt-2" disabled aria-label="ابدأ الجولة الجديدة">🚀 ابدأ الجولة الجديدة</button>
+                <button id="btn-newround-cancel" class="btn-press w-full min-h-[46px] bg-transparent text-text-muted font-bold text-sm rounded-2xl border border-white/10 transition-all hover:border-white/20 active:bg-white/5">إلغاء والعودة للنتائج</button>
+            </div>
+        </div>
+
+    </div><!-- /#app -->
+
+    <script>
+        (function() {
+            // ═══════════════════════════════════════
+            // 🔵 SUPABASE CONFIG — REPLACE WITH YOUR OWN
+            // ═══════════════════════════════════════
+            const SUPABASE_URL = 'https://necmprlejztyarfwfzei.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_3nUgd41ReTMxFHT_X9--Ww_vhFXNQPP';
+            // ⚠️ IMPORTANT: Replace the above with your actual Supabase URL and anon key
+
+            // ═══════════════════════════════════════
+            // LOCAL CONFIG (unchanged)
+            // ═══════════════════════════════════════
+            const CFG = {
+                MIN_PLAYERS: 3,
+                MAX_PLAYERS: 14,
+                AVATAR_COLORS: ['#ff5e5b', '#4ecdc4', '#45b7d1', '#f7dc6f', '#bb8fce', '#5dade2', '#58d68d',
+                    '#eb984e', '#ec7063', '#af7ac5', '#5499c7', '#f0b27a', '#e67e22', '#2ecc71'
+                ],
+                CAT_META: {
+                    'أكلات': { icon: 'pizza', desc: 'مأكولات ومشروبات من حول العالم' },
+                    'دول ومدن': { icon: 'globe', desc: 'دول وعواصم من مختلف القارات' },
+                    'أفلام ومسلسلات': { icon: 'film', desc: 'أفلام وقصص مشهورة من الشاشة' },
+                    'تكنولوجيا': { icon: 'cpu', desc: 'مصطلحات وأجهزة تقنية حديثة' },
+                    'حيوانات': { icon: 'paw-print', desc: 'كائنات متنوعة من الطبيعة' },
+                    'رياضة': { icon: 'trophy', desc: 'أنواع الرياضات والألعاب' },
+                    'أدوات منزلية': { icon: 'home', desc: 'أجهزة وأدوات في كل منزل' },
+                    'مشروبات': { icon: 'coffee', desc: 'مشروبات ساخنة وباردة' },
+                    'فواكه': { icon: 'apple', desc: 'فواكه طازجة وموسمية' },
+                    'أشياء عامة': { icon: 'box', desc: 'أشياء متنوعة من حولنا' },
+                }
+            };
+
+            // ═══════════════════════════════════════
+            // WORD CLUSTERS (unchanged)
+            // ═══════════════════════════════════════
+            const WORD_CLUSTERS = {
+                'أكلات': [
+                    ['برجر', 'شاورما', 'تاكو', 'ساندويتش', 'هوت دوغ'],
+                    ['بيتزا', 'فطيرة', 'كيش', 'كالزوني', 'مناقيش'],
+                    ['سوشي', 'ماكي', 'نيغيري', 'ساشيمي', 'رول'],
+                    ['كبسة', 'مندي', 'برياني', 'رز بخاري', 'مجبوس'],
+                    ['كنافة', 'بقلاوة', 'قطايف', 'بسبوسة', 'هريسة'],
+                    ['فلافل', 'حمص', 'متبل', 'بابا غنوج', 'فتوش'],
+                    ['آيس كريم', 'مثلجات', 'سموذي', 'ميلك شيك', 'زبادي مثلج'],
+                    ['دجاج', 'لحم', 'سمك', 'روبيان', 'بط'],
+                    ['مكرونة', 'لازانيا', 'رافيولي', 'فيتوتشيني', 'بيني'],
+                    ['شوربة', 'حساء', 'مرق', 'شوربة كريمة', 'شوربة خضار'],
+                    ['كباب', 'كفتة', 'تكة', 'شيش طاووق', 'ريش'],
+                    ['معجنات', 'فطاير', 'سمبوسة', 'منتو', 'يغمش'],
+                ],
+                'دول ومدن': [
+                    ['فرنسا', 'إيطاليا', 'إسبانيا', 'ألمانيا', 'البرتغال'],
+                    ['مصر', 'المغرب', 'الجزائر', 'تونس', 'ليبيا'],
+                    ['السعودية', 'الإمارات', 'الكويت', 'قطر', 'البحرين'],
+                    ['اليابان', 'الصين', 'كوريا الجنوبية', 'تايلاند', 'فيتنام'],
+                    ['أمريكا', 'كندا', 'المكسيك', 'البرازيل', 'الأرجنتين'],
+                    ['لبنان', 'الأردن', 'سوريا', 'فلسطين', 'العراق'],
+                    ['باريس', 'روما', 'مدريد', 'برلين', 'لندن'],
+                    ['دبي', 'الرياض', 'الدوحة', 'مسقط', 'المنامة'],
+                    ['طوكيو', 'بكين', 'سيول', 'بانكوك', 'هانوي'],
+                    ['اسطنبول', 'طهران', 'موسكو', 'نيودلهي', 'جاكرتا'],
+                    ['القاهرة', 'الإسكندرية', 'الأقصر', 'أسوان', 'شرم الشيخ'],
+                    ['الدار البيضاء', 'مراكش', 'طنجة', 'فاس', 'أكادير'],
+                ],
+                'أفلام ومسلسلات': [
+                    ['تيتانيك', 'أفاتار', 'جوراسيك بارك', 'حرب النجوم', 'هاري بوتر'],
+                    ['فروزن', 'موانا', 'كوكو', 'أسطورة مريدا', 'رابونزل'],
+                    ['إنسبشن', 'إنترستيلر', 'ماتريكس', 'تينيت', 'غرافيتي'],
+                    ['بيكي بلايندرز', 'بريكينغ باد', 'غيم أوف ثرونز', 'سترينجر ثينغز', 'ذا كراون'],
+                    ['ذا ليون كينغ', 'بامبي', 'الأميرة النائمة', 'سندريلا', 'الجميلة والوحش'],
+                    ['فاست آند فيوريس', 'ميشين إمبوسيبل', 'جيمس بوند', 'جون ويك', 'ماد ماكس'],
+                    ['توي ستوري', 'شريك', 'فايندينغ نيمو', 'مونسترز إنك', 'زوتوبيا'],
+                    ['جوكر', 'باتمان', 'سبايدرمان', 'آيرون مان', 'بلاك بانثر'],
+                ],
+                'تكنولوجيا': [
+                    ['آيفون', 'سامسونج', 'هواوي', 'شاومي', 'ون بلس'],
+                    ['لابتوب', 'ماك بوك', 'كروم بوك', 'سيرفس برو', 'ثينك باد'],
+                    ['انستغرام', 'تيك توك', 'سناب شات', 'تويتر', 'فيسبوك'],
+                    ['بلوتوث', 'واي فاي', 'إن إف سي', 'يو إس بي', 'إتش دي إم آي'],
+                    ['ذكاء اصطناعي', 'تعلم آلي', 'شبكة عصبية', 'خوارزمية', 'بيانات ضخمة'],
+                    ['طابعة', 'سكانر', 'آلة تصوير', 'بروجكتور', 'شاشة لمس'],
+                    ['ساعة ذكية', 'سماعة لاسلكية', 'نظارة واقع افتراضي', 'حلقة ذكية', 'جهاز تتبع'],
+                    ['تسلا', 'سيارة كهربائية', 'سكوتر ذكي', 'دراجة كهربائية', 'حافلة ذاتية'],
+                ],
+                'حيوانات': [
+                    ['فيل', 'كركدن', 'فرس نهر', 'تابير', 'خنزير بري'],
+                    ['أسد', 'نمر', 'فهد', 'وشق', 'جاكوار'],
+                    ['دولفين', 'حوت', 'فقمة', 'عجل البحر', 'خنزير البحر'],
+                    ['نسر', 'صقر', 'باز', 'عقاب', 'حدأة'],
+                    ['ثعبان', 'أفعى', 'صل', 'كوبرا', 'أناكوندا'],
+                    ['بطريق', 'بفن', 'نورس', 'قطرس', 'غاق'],
+                    ['سلحفاة', 'سلحفاة بحرية', 'ترسة', 'سلحفاة صندوقية', 'سلحفاة نهرية'],
+                    ['قرد', 'غوريلا', 'شمبانزي', 'إنسان الغاب', 'جيبون'],
+                ],
+                'رياضة': [
+                    ['كرة قدم', 'كرة الصالات', 'كرة شاطئية', 'كرة قدم أمريكية', 'رغبي'],
+                    ['تنس', 'بادل', 'بينغ بونغ', 'ريشة طائرة', 'سكواش'],
+                    ['سباحة', 'غطس', 'كرة ماء', 'سباحة حرة', 'سباحة ظهر'],
+                    ['ملاكمة', 'كيك بوكسينغ', 'مواي تاي', 'جيو جيتسو', 'كاراتيه'],
+                    ['ركوب الدراجات', 'سباق دراجات', 'جبلية', 'بي إم إكس', 'دراجات ثابتة'],
+                    ['تزلج', 'تزلج فني', 'هوكي جليدي', 'كيرلنغ', 'زلاجة جماعية'],
+                    ['جمباز', 'جمباز إيقاعي', 'ترامبولين', 'باركور', 'أكروبات'],
+                    ['غولف', 'ميني غولف', 'كروكيه', 'بولو', 'فروسية'],
+                ],
+                'أدوات منزلية': [
+                    ['ثلاجة', 'فريزر', 'براد', 'مبرد ماء', 'صندوق ثلج'],
+                    ['غسالة', 'نشافة', 'غسالة صحون', 'مجفف', 'مكواة'],
+                    ['مكرويف', 'فرن', 'محمصة', 'قلاية هوائية', 'طباخ بطيء'],
+                    ['خلاط', 'عصارة', 'مطحنة', 'محضرة طعام', 'مضرب بيض'],
+                    ['مكنسة', 'مكنسة روبوت', 'ممسحة', 'جهاز تنظيف بالبخار', 'مكنسة لاسلكية'],
+                ],
+                'مشروبات': [
+                    ['قهوة', 'نسكافيه', 'كابتشينو', 'لاتيه', 'إسبريسو'],
+                    ['شاي', 'شاي أخضر', 'شاي أحمر', 'شاي بالنعناع', 'شاي مثلج'],
+                    ['عصير برتقال', 'عصير تفاح', 'عصير مانجو', 'عصير فراولة', 'عصير ليمون'],
+                    ['غازيات', 'كولا', 'سفن أب', 'فanta', 'مشروب طاقة'],
+                    ['حليب', 'لبن', 'عيران', 'شنينة', 'حليب بالشوكولاتة'],
+                ],
+                'فواكه': [
+                    ['تفاح', 'كمثرى', 'خوخ', 'مشمش', 'دراق'],
+                    ['موز', 'مانجو', 'أناناس', 'بابايا', 'جوافة'],
+                    ['فراولة', 'توت', 'عنب', 'كرز', 'رمان'],
+                    ['برتقال', 'ليمون', 'جريب فروت', 'يوسفي', 'كلمنتينا'],
+                    ['بطيخ', 'شمام', 'كانتالوب', 'عسل', 'دلاع'],
+                ],
+                'أشياء عامة': [
+                    ['سيارة', 'شاحنة', 'حافلة', 'دراجة نارية', 'سكوتر'],
+                    ['طائرة', 'مروحية', 'منطاد', 'صاروخ', 'طائرة شراعية'],
+                    ['قلم', 'قلم رصاص', 'ماركر', 'حبر', 'طباشير'],
+                    ['كتاب', 'مجلة', 'جريدة', 'دفتر', 'مفكرة'],
+                    ['ساعة يد', 'ساعة حائط', 'منبه', 'ساعة رملية', 'كرونومتر'],
+                    ['هاتف', 'جهاز لوحي', 'حاسوب', 'سماعة', 'كاميرا'],
+                    ['مظلة', 'معطف', 'حذاء', 'قبعة', 'وشاح'],
+                    ['مفتاح', 'قفل', 'سلسلة', 'باب', 'نافذة'],
+                ],
+            };
+
+            // ═══════════════════════════════════════
+            // LOCAL STATE (unchanged)
+            // ═══════════════════════════════════════
+            const S = {
+                players: [],
+                selectedCategory: null,
+                selectedMode: 'traditional',
+                secretWord: null,
+                oddIndex: null,
+                oddWord: null,
+                totalQuestionRounds: 6,
+                currentQRound: 0,
+                qUsedPairs: [],
+                currentVoterIdx: 0,
+                votes: [],
+                roundScores: null,
+                rngSeed: Date.now(),
+                tutorialShown: false,
+                currentRevealIdx: 0,
+                revealFlipped: false,
+            };
+
+            // ═══════════════════════════════════════
+            // ONLINE STATE
+            // ═══════════════════════════════════════
+            const OS = {
+                supabase: null,
+                clientId: null,
+                playerName: null,
+                roomId: null,
+                roomCode: null,
+                isHost: false,
+                isReady: false,
+                myPlayerId: null,
+                currentPhase: 'lobby', // lobby | reveal | qa | voting | suspense | secondchance | leaderboard
+                subscriptions: [],
+                gameData: null, // cached room + players
+                myRole: null, // 'normal' | 'odd'
+                myWord: null,
+                hasRevealed: false,
+                qaRound: 0,
+                qaTotalRounds: 6,
+                qaRole: null, // 'asker' | 'respondent' | 'spectator'
+                qaQuestion: null,
+                qaAnswer: null,
+                qaAnswered: false,
+                qaTimer: 45,
+                qaTimerInterval: null,
+                voteSelection: null,
+                votesCast: 0,
+                suspenseData: null,
+                scChosen: null,
+                scCorrect: false,
+                lbData: null,
+            };
+
+            // ═══════════════════════════════════════
+            // DOM HELPERS (shared)
+            // ═══════════════════════════════════════
+            const $ = s => document.querySelector(s);
+            const $$ = s => document.querySelectorAll(s);
+
+            function showScreen(name) {
+                $$('.screen').forEach(el => el.classList.remove('active'));
+                const t = $(`#screen-${name}`);
+                if (t) { t.classList.add('active');
+                    t.style.animation = 'none';
+                    t.offsetHeight;
+                    t.style.animation = ''; }
+                if (window.lucide) lucide.createIcons();
+                const bp = $('#bg-particles');
+                if (bp) bp.style.display = (name === 'landing' || name === 'modepicker') ? 'block' : 'none';
+            }
+
+            function esc(s) { const d = document.createElement('div');
+                d.textContent = s; return d.innerHTML; }
+
+            function toast(msg, d = 2200) {
+                const c = $('#toast-container');
+                const t = document.createElement('div');
+                t.className = 'toast-float';
+                t.textContent = msg;
+                c.appendChild(t);
+                setTimeout(() => { t.style.opacity = '0';
+                    t.style.transition = 'opacity 200ms';
+                    setTimeout(() => t.remove(), 250); }, d);
+            }
+
+            function hapticLight() { try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) {} }
+
+            function hapticSuccess() { try { if (navigator.vibrate) navigator.vibrate([12, 25, 12]); } catch (e) {} }
+
+            function avHTML(name, idx, cls = '') {
+                const init = name.trim().charAt(0).toUpperCase();
+                const col = CFG.AVATAR_COLORS[idx % CFG.AVATAR_COLORS.length];
+                const sizeCls = cls === 'sm' ? 'w-7 h-7 text-xs border-[1.5px]' : cls === 'lg' ? 'w-[54px] h-[54px] text-xl border-[3px]' :
+                    'w-[38px] h-[38px] text-sm border-2';
+                return `<span class="inline-flex items-center justify-center rounded-full font-extrabold text-white shrink-0 border-white/20 shadow-[0_2px_10px_rgba(0,0,0,0.3)] ${sizeCls}" style="background:${col};">${init}</span>`;
+            }
+
+            // ═══════════════════════════════════════
+            // CONFETTI (shared)
+            // ═══════════════════════════════════════
+            const cfCanvas = $('#confetti-canvas');
+            let cfCtx = null,
+                cfParts = [],
+                cfRAF = null;
+
+            function initCF() { if (!cfCtx) cfCtx = cfCanvas.getContext('2d');
+                cfCanvas.width = innerWidth;
+                cfCanvas.height = innerHeight; }
+
+            function spawnCF(n = 70) {
+                initCF();
+                cfCanvas.classList.remove('hidden');
+                const cols = ['#00e0ff', '#ff2d6e', '#a8ff5a', '#ffd54f', '#b44dff', '#4cff8d', '#fff'];
+                cfParts = [];
+                for (let i = 0; i < n; i++) cfParts.push({ x: Math.random() * cfCanvas.width, y: -25 - Math.random() *
+                        130, w: Math.random() * 7 + 3, h: Math.random() * 5 + 2, color: cols[Math.floor(Math.random() *
+                        cols.length)], vx: (Math.random() - 0.5) * 5, vy: Math.random() * 3 + 2.5, rot: Math.random() *
+                        360, rotV: (Math.random() - 0.5) * 10, opacity: 1, decay: 0.004 + Math.random() * 0.014 });
+                if (!cfRAF) animCF();
+            }
+
+            function animCF() {
+                if (!cfCtx) return;
+                cfCtx.clearRect(0, 0, cfCanvas.width, cfCanvas.height);
+                let alive = false;
+                for (const p of cfParts) { p.x += p.vx;
+                    p.y += p.vy;
+                    p.rot += p.rotV;
+                    p.opacity -= p.decay; if (p.opacity <= 0) continue;
+                    alive = true;
+                    cfCtx.save();
+                    cfCtx.translate(p.x, p.y);
+                    cfCtx.rotate(p.rot * Math.PI / 180);
+                    cfCtx.globalAlpha = Math.max(0, p.opacity);
+                    cfCtx.fillStyle = p.color;
+                    cfCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+                    cfCtx.restore(); }
+                if (alive) cfRAF = requestAnimationFrame(animCF);
+                else { cfRAF = null;
+                    cfCanvas.classList.add('hidden');
+                    cfParts = []; }
+            }
+
+            // ═══════════════════════════════════════
+            // BG PARTICLES (shared)
+            // ═══════════════════════════════════════
+            function spawnBg() {
+                const c = $('#bg-particles');
+                if (!c) return;
+                c.innerHTML = '';
+                const cols = ['#00e0ff', '#ff2d6e', '#a8ff5a', '#ffd54f', '#b44dff', '#fff'];
+                for (let i = 0; i < 44; i++) {
+                    const d = document.createElement('div');
+                    d.className = 'rounded-full absolute animate-float-up';
+                    const s = Math.random() * 5 + 2;
+                    d.style.width = s + 'px';
+                    d.style.height = s + 'px';
+                    d.style.left = Math.random() * 100 + '%';
+                    d.style.background = cols[Math.floor(Math.random() * cols.length)];
+                    d.style.animationDuration = (Math.random() * 16 + 8) + 's';
+                    d.style.animationDelay = (Math.random() * 14) + 's';
+                    d.style.boxShadow = `0 0 ${s*3}px ${d.style.background}`;
+                    d.style.opacity = '0';
+                    c.appendChild(d);
+                }
+            }
+
+            // ═══════════════════════════════════════
+            // LOCAL GAME FUNCTIONS (preserved from v3)
+            // ═══════════════════════════════════════
+            function seedRand() { S.rngSeed = (S.rngSeed * 16807 + 0) % 2147483647; return (S.rngSeed - 1) / 2147483646; }
+
+            function randInt(min, max) { return Math.floor(seedRand() * (max - min + 1)) + min; }
+
+            function shuffle(arr) { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(
+                    seedRand() * (i + 1));
+                    [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+            function rebuildCardDOM(isOdd) {
+                const container = $('#reveal-scene-container');
+                container.innerHTML = '';
+                const card = document.createElement('div');
+                card.className = 'reveal-card';
+                card.setAttribute('role', 'button');
+                card.setAttribute('tabindex', '0');
+                card.setAttribute('aria-label', 'اضغط للكشف عن دورك');
+                const front = document.createElement('div');
+                front.className = 'reveal-face reveal-front';
+                front.innerHTML =
+                    '<span style="font-size:3rem;">👆</span><span class="font-bold">اضغط للكشف عن دورك</span><span class="text-text-dim text-xs">اضغط مرة أخرى للإخفاء</span>';
+                const back = document.createElement('div');
+                back.className = 'reveal-face reveal-back';
+                back.id = 'reveal-back-face-dynamic';
+                if (isOdd && S.selectedMode === 'traditional') {
+                    back.classList.add('liar-back');
+                    back.innerHTML =
+                        '<span class="liar-msg text-xl font-black text-magenta-neon">🕵️ أنت برا السالفة!</span><span class="text-text-dim text-xs">حاول تندمج... لا تخلي أحد يعرف!</span>';
+                } else if (isOdd && S.selectedMode === 'mindbending') {
+                    back.innerHTML =
+                        `<span class="big-word text-2xl font-black text-cyan-neon tracking-wider">${esc(S.oddWord)}</span><span class="text-text-dim text-xs">احفظ الكلمة... لا تقلها لأحد!</span>`;
+                } else {
+                    back.innerHTML =
+                        `<span class="big-word text-2xl font-black text-cyan-neon tracking-wider">${esc(S.secretWord)}</span><span class="text-text-dim text-xs">احفظ الكلمة... لا تقلها لأحد!</span>`;
+                }
+                card.appendChild(front);
+                card.appendChild(back);
+                container.appendChild(card);
+                S.revealFlipped = false;
+                card.addEventListener('click', () => {
+                    if (S.revealFlipped) { card.classList.remove('flipped');
+                        S.revealFlipped = false;
+                        card.style.pointerEvents = 'auto'; return; }
+                    S.revealFlipped = true;
+                    card.classList.add('flipped');
+                    card.style.pointerEvents = 'auto';
+                    hapticSuccess();
+                    setTimeout(() => { $('#btn-secret-next').classList.remove('hidden');
+                        $('#btn-secret-next').focus(); }, 1000);
+                });
+                card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault();
+                        card.click(); } });
+                $('#btn-secret-next').classList.add('hidden');
+            }
+
+            // ─── Local setup ───
+            function renderSetup() {
+                renderPlayerChips();
+                renderCatGrid();
+                renderModeSelector();
+                updateSetupUI();
+            }
+
+            function renderPlayerChips() {
+                const c = $('#players-chips');
+                c.innerHTML = S.players.map((p, i) => `
+            <span class="flex items-center gap-3 px-4 py-2.5 bg-white/4 border border-white/7 rounded-[26px] font-bold text-sm">
+              ${avHTML(p.name,i,'sm')} <span>${esc(p.name)}</span>
+              <button class="remove-chip w-6 h-6 rounded-full bg-red-500/25 text-white flex items-center justify-center text-xs shrink-0 border-none cursor-pointer hover:bg-red-500/50 transition-all" data-idx="${i}" aria-label="حذف">✕</button>
+            </span>`).join('');
+                c.querySelectorAll('.remove-chip').forEach(b => b.addEventListener('click', e => { e.stopPropagation();
+                    S.players.splice(parseInt(b.dataset.idx), 1);
+                    renderSetup();
+                    hapticLight(); }));
+            }
+
+            function renderCatGrid() {
+                const g = $('#cat-grid');
+                const cats = Object.keys(WORD_CLUSTERS);
+                const sel = S.selectedCategory || cats[0];
+                if (!S.selectedCategory) S.selectedCategory = cats[0];
+                g.innerHTML = cats.map(cat => {
+                    const m = CFG.CAT_META[cat] || { icon: 'box' };
+                    return `<div class="cat-card-option bg-white/[0.022] border-2 border-white/5 rounded-2xl p-4 text-center cursor-pointer transition-all hover:border-cyan-neon hover:bg-cyan-neon/5 hover:shadow-[0_0_24px_rgba(0,224,255,0.07)] hover:-translate-y-0.5 flex flex-col items-center justify-center gap-1.5 font-bold text-xs min-h-[88px] ${cat===sel?'!border-cyan-neon !bg-cyan-neon/10 !text-cyan-neon !shadow-[0_0_32px_rgba(0,224,255,0.13)]':''}" data-cat="${esc(cat)}" tabindex="0" role="radio"><i data-lucide="${m.icon}" class="w-7 h-7 stroke-current"></i><span>${esc(cat)}</span></div>`;
+                }).join('');
+                g.querySelectorAll('.cat-card-option').forEach(cd => { cd.addEventListener('click', () => { g
+                        .querySelectorAll('.cat-card-option').forEach(c => c.classList.remove('!border-cyan-neon',
+                            '!bg-cyan-neon/10', '!text-cyan-neon',
+                            '!shadow-[0_0_32px_rgba(0,224,255,0.13)]'));
+                        cd.classList.add('!border-cyan-neon', '!bg-cyan-neon/10', '!text-cyan-neon',
+                            '!shadow-[0_0_32px_rgba(0,224,255,0.13)]');
+                        S.selectedCategory = cd.dataset.cat;
+                        updateSetupUI();
+                        hapticLight(); });
+                    cd.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e
+                            .preventDefault();
+                            cd.click(); } }); });
+                if (window.lucide) lucide.createIcons();
+            }
+
+            function renderModeSelector() {
+                const sel = S.selectedMode || 'traditional';
+                if (!S.selectedMode) S.selectedMode = 'traditional';
+                $$('.mode-card').forEach(c => c.classList.remove('!border-purple-neon', '!bg-purple-neon/10',
+                    '!shadow-[0_0_30px_rgba(180,77,255,0.14)]'));
+                const target = $(`.mode-card[data-mode="${sel}"]`);
+                if (target) target.classList.add('!border-purple-neon', '!bg-purple-neon/10',
+                    '!shadow-[0_0_30px_rgba(180,77,255,0.14)]');
+                $$('.mode-card').forEach(c => c.addEventListener('click', () => { $$('.mode-card').forEach(x => x
+                        .classList.remove('!border-purple-neon', '!bg-purple-neon/10',
+                            '!shadow-[0_0_30px_rgba(180,77,255,0.14)]'));
+                    c.classList.add('!border-purple-neon', '!bg-purple-neon/10',
+                        '!shadow-[0_0_30px_rgba(180,77,255,0.14)]');
+                    S.selectedMode = c.dataset.mode;
+                    updateSetupUI();
+                    hapticLight(); }));
+            }
+
+            function updateSetupUI() {
+                const n = S.players.length;
+                $('#setup-count-badge').textContent = n + ' لاعب' + (n !== 1 ? 'ين' : '');
+                $('#setup-hint').textContent = n < CFG.MIN_PLAYERS ? `الحد الأدنى ${CFG.MIN_PLAYERS} لاعبين (أضفت ${n})` :
+                    `✅ ${n} لاعبين جاهزين`;
+                $('#btn-setup-start').disabled = n < CFG.MIN_PLAYERS || !S.selectedCategory || !S.selectedMode;
+            }
+
+            // ─── Local game flow ───
+            function setupSecretReveal() {
+                S.currentRevealIdx = 0;
+                S.revealFlipped = false;
+                renderSecretPlayer(0);
+                showScreen('secret');
+            }
+
+            function renderSecretPlayer(idx) {
+                S.currentRevealIdx = idx;
+                const p = S.players[idx];
+                const isOdd = (idx === S.oddIndex);
+                $('#secret-title').textContent = '📱 مرر الهاتف إلى...';
+                $('#secret-player-name').textContent = p.name;
+                $('#secret-progress').textContent = `اللاعب ${idx+1} من ${S.players.length}`;
+                rebuildCardDOM(isOdd);
+            }
+
+            function advanceSecret() {
+                const nxt = S.currentRevealIdx + 1;
+                if (nxt >= S.players.length) setupQuestioning();
+                else renderSecretPlayer(nxt);
+            }
+
+            function setupQuestioning() {
+                S.totalQuestionRounds = randInt(6, 7);
+                S.currentQRound = 0;
+                S.qUsedPairs = [];
+                renderQRound();
+                showScreen('questioning');
+                $('#btn-q-next').classList.remove('hidden');
+                $('#btn-q-to-vote').classList.add('hidden');
+            }
+
+            function pickPair() {
+                const n = S.players.length;
+                const all = [];
+                for (let a = 0; a < n; a++)
+                    for (let t = 0; t < n; t++)
+                        if (a !== t) all.push([a, t]);
+                const unused = all.filter(([a, t]) => !S.qUsedPairs.some(([ua, ut]) => ua === a && ut === t));
+                let pair = unused.length ? unused[randInt(0, unused.length - 1)] : all[randInt(0, all.length - 1)];
+                if (!unused.length) S.qUsedPairs = [];
+                S.qUsedPairs.push(pair);
+                return pair;
+            }
+
+            function renderQRound() {
+                S.currentQRound++;
+                const [ai, ti] = pickPair();
+                const asker = S.players[ai],
+                    target = S.players[ti];
+                $('#q-round-badge').textContent = `الجولة ${S.currentQRound} من ${S.totalQuestionRounds}`;
+                $('#q-asker-badge').innerHTML =
+                    `${avHTML(asker.name,ai,'sm')} <span>${esc(asker.name)}</span>`;
+                $('#q-target-badge').innerHTML =
+                    `${avHTML(target.name,ti,'sm')} <span>${esc(target.name)}</span>`;
+                $('#q-prompt').textContent = `${asker.name} اسأل ${target.name}!`;
+                if (S.currentQRound >= S.totalQuestionRounds) { $('#btn-q-next').classList.add('hidden');
+                    $('#btn-q-to-vote').classList.remove('hidden');
+                    $('#btn-q-to-vote').focus(); } else { $('#btn-q-next').classList.remove('hidden');
+                    $('#btn-q-to-vote').classList.add('hidden'); }
+                if (window.lucide) lucide.createIcons();
+            }
+
+            function setupVoting() {
+                S.currentVoterIdx = 0;
+                S.votes = new Array(S.players.length).fill(-1);
+                renderVoter(0);
+                showScreen('voting');
+                $('#btn-voting-done').classList.add('hidden');
+            }
+
+            function renderVoter(vi) {
+                S.currentVoterIdx = vi;
+                const voter = S.players[vi];
+                $('#voting-voter-name').textContent = `🗳️ ${voter.name}، صوّت بسرية:`;
+                $('#voting-progress').textContent = `الناخب ${vi+1} من ${S.players.length}`;
+                const c = $('#voting-options');
+                c.innerHTML = S.players.map((p, i) => i === vi ? '' : `
+            <div class="vote-opt-option bg-white/[0.025] border-2 border-white/5 rounded-2xl p-4 cursor-pointer transition-all hover:border-magenta-neon hover:bg-magenta-neon/5 hover:shadow-[0_0_22px_rgba(255,45,110,0.06)] text-center min-h-[46px] flex items-center justify-center gap-3 font-bold" data-idx="${i}" tabindex="0" role="button">
+              ${avHTML(p.name,i,'sm')} <span>${esc(p.name)}</span>
+            </div>`).filter(Boolean).join('');
+                c.querySelectorAll('.vote-opt-option').forEach(o => { o.addEventListener('click', () => { c
+                        .querySelectorAll('.vote-opt-option').forEach(x => x.classList.remove(
+                            '!border-magenta-neon', '!bg-magenta-neon/12', '!text-magenta-neon',
+                            '!shadow-[0_0_30px_rgba(255,45,110,0.15)]'));
+                        o.classList.add('!border-magenta-neon', '!bg-magenta-neon/12', '!text-magenta-neon',
+                            '!shadow-[0_0_30px_rgba(255,45,110,0.15)]');
+                        S.votes[vi] = parseInt(o.dataset.idx);
+                        hapticLight();
+                        setTimeout(advanceVoter, 300); });
+                    o.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e
+                            .preventDefault();
+                            o.click(); } }); });
+            }
+
+            function advanceVoter() {
+                const nxt = S.currentVoterIdx + 1;
+                if (nxt >= S.players.length) { $('#voting-progress').textContent = '✅ اكتمل التصويت!';
+                    $('#voting-options').innerHTML = '';
+                    $('#voting-voter-name').textContent = 'تم تسجيل جميع الأصوات';
+                    $('#btn-voting-done').classList.remove('hidden');
+                    $('#btn-voting-done').focus(); } else renderVoter(nxt);
+            }
+
+            function computeScores() {
+                const votes = S.votes;
+                const oddIdx = S.oddIndex;
+                const n = S.players.length;
+                const vc = new Array(n).fill(0);
+                votes.forEach(t => { if (t >= 0) vc[t]++; });
+                const maxV = Math.max(...vc);
+                const tied = [];
+                vc.forEach((c, i) => { if (c === maxV && c > 0) tied.push(i); });
+                let caughtIdx = null;
+                if (tied.length === 1) caughtIdx = tied[0];
+                else if (tied.length > 1) caughtIdx = tied[randInt(0, tied.length - 1)];
+                const oddCaught = (caughtIdx === oddIdx);
+                const scores = new Array(n).fill(0);
+                const log = new Array(n).fill('');
+                for (let i = 0; i < n; i++) {
+                    if (i !== oddIdx && votes[i] === oddIdx) { scores[i] += 10;
+                        log[i] += 'صوّت صحيحاً (+10) '; }
+                }
+                if (!oddCaught) { scores[oddIdx] += 30;
+                    log[oddIdx] += 'خداع كامل (+30) '; }
+                if (oddCaught && vc[oddIdx] < n) {
+                    const missed = n - vc[oddIdx];
+                    const bonus = missed * 5;
+                    scores[oddIdx] += bonus;
+                    log[oddIdx] += `خداع جزئي (${missed}×5=+${bonus}) `;
+                }
+                if (oddCaught) {
+                    for (let i = 0; i < n; i++) {
+                        if (i !== oddIdx && vc[i] === 0) { scores[i] += 15;
+                            log[i] += 'تفادى الشك (+15) '; }
+                    }
+                }
+                S.players.forEach((p, i) => { p.totalScore = (p.totalScore || 0) + (scores[i] || 0); });
+                S.roundScores = { scores, log, vc, oddCaught, caughtIdx, oddIdx };
+                return S.roundScores;
+            }
+
+            function startSuspenseSequence() {
+                const rs = computeScores();
+                showScreen('suspense');
+                const content = $('#suspense-content');
+                const caughtName = rs.caughtIdx !== null ? S.players[rs.caughtIdx].name : '???';
+                content.innerHTML = `
+            <div class="glass-panel rounded-2xl p-6 text-center">
+              <p class="text-text-muted text-lg" id="suspense-line1"></p>
+              <h1 class="text-magenta-neon font-black text-3xl mt-2" id="suspense-name"></h1>
+            </div>
+            <div class="glass-panel rounded-2xl p-6 text-center hidden border-2 border-lime-neon" id="suspense-reveal-box">
+              <p class="text-text-muted">والشخص الذي خارج السالفة هو...</p>
+              <h1 class="text-lime-neon font-black text-4xl mt-2" id="suspense-odd-name"></h1>
+            </div>`;
+                $('#suspense-headline').textContent = '🔮 لحظة الحقيقة...';
+                const line1 = $('#suspense-line1');
+                const nameEl = $('#suspense-name');
+                const revealBox = $('#suspense-reveal-box');
+                const oddNameEl = $('#suspense-odd-name');
+                const fullText = `اللاعبون صوّتوا على استبعاد:`;
+                let i = 0;
+                const words = fullText.split(' ');
+                const typeInterval = setInterval(() => {
+                    if (i < words.length) { line1.textContent += (i > 0 ? ' ' : '') + words[i];
+                        i++; } else { clearInterval(typeInterval);
+                        nameEl.textContent = caughtName;
+                        setTimeout(() => { revealBox.classList.remove('hidden');
+                            oddNameEl.textContent = S.players[rs.oddIdx].name;
+                            hapticSuccess(); if (rs.oddCaught) spawnCF(70);
+                            setTimeout(() => { if (rs.oddCaught) setupSecondChance();
+                                else showLeaderboard(); }, 2500); }, 2000); }
+                }, 110);
+            }
+
+            let scCorrect = false;
+
+            function setupSecondChance() {
+                const rs = S.roundScores;
+                showScreen('secondchance');
+                scCorrect = false;
+                const oddPlayer = S.players[rs.oddIdx];
+                $('#sc-prompt').textContent = `${oddPlayer.name}، تم كشفك! لكن لديك فرصة للإنقاذ...`;
+                const cluster = WORD_CLUSTERS[S.selectedCategory]?.find(c => c.includes(S.secretWord)) || [S.secretWord,
+                    'غير معروف', 'غير معروف', 'غير معروف'
+                ];
+                const correct = S.secretWord;
+                const distractors = shuffle(cluster.filter(w => w !== correct)).slice(0, 3);
+                const options = shuffle([correct, ...distractors]);
+                const c = $('#sc-options');
+                c.innerHTML = options.map(w => `
+            <div class="vote-opt-option bg-white/[0.025] border-2 border-white/5 rounded-2xl p-4 cursor-pointer transition-all hover:border-lime-neon hover:bg-lime-neon/5 text-center min-h-[46px] flex items-center justify-center font-bold" data-word="${esc(w)}" tabindex="0" role="button">
+              <span>${esc(w)}</span>
+            </div>`).join('');
+                let selWord = null;
+                c.querySelectorAll('.vote-opt-option').forEach(o => { o.addEventListener('click', () => { c
+                        .querySelectorAll('.vote-opt-option').forEach(x => x.classList.remove(
+                            '!border-lime-neon', '!bg-lime-neon/12', '!text-lime-neon'));
+                        o.classList.add('!border-lime-neon', '!bg-lime-neon/12', '!text-lime-neon');
+                        selWord = o.dataset.word;
+                        $('#btn-sc-confirm').classList.remove('hidden');
+                        hapticLight(); });
+                    o.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e
+                            .preventDefault();
+                            o.click(); } }); });
+                $('#btn-sc-confirm').classList.add('hidden');
+                $('#btn-sc-next').classList.add('hidden');
+                $('#sc-result').textContent = '';
+                $('#btn-sc-confirm').onclick = () => {
+                    if (!selWord) { toast('اختر كلمة أولاً!', 1500); return; }
+                    scCorrect = (selWord === correct);
+                    if (scCorrect) {
+                        S.players[rs.oddIdx].totalScore += 20;
+                        S.roundScores.scores[rs.oddIdx] += 20;
+                        S.roundScores.log[rs.oddIdx] += 'إنقاذ (+20) ';
+                        $('#sc-result').innerHTML =
+                            '<span class="text-lime-neon font-extrabold">✅ إجابة صحيحة! +20 نقطة إنقاذ</span>';
+                        spawnCF(50);
+                    } else {
+                        $('#sc-result').innerHTML =
+                            `<span class="text-magenta-neon font-extrabold">❌ خطأ! الكلمة الصحيحة: ${esc(correct)}</span>`;
+                    }
+                    $('#btn-sc-confirm').classList.add('hidden');
+                    c.querySelectorAll('.vote-opt-option').forEach(o => o.style.pointerEvents = 'none');
+                    $('#btn-sc-next').classList.remove('hidden');
+                    $('#btn-sc-next').focus();
+                    hapticSuccess();
+                };
+                $('#btn-sc-next').onclick = () => showLeaderboard();
+            }
+
+            function showLeaderboard() {
+                const rs = S.roundScores;
+                showScreen('leaderboard');
+                const sorted = [...S.players].sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
+                $('#lb-headline').textContent = rs.oddCaught ? '🎉 تم الكشف عن برا السالفة!' : '😈 برا السالفة فاز!';
+                let html = '';
+                html +=
+                    `<div class="glass-panel rounded-2xl p-6 text-center"><p class="text-text-muted">الكلمة السرية:</p><h1 class="text-cyan-neon font-black text-3xl">${esc(S.secretWord)}</h1><p class="text-text-dim text-sm mt-2">الفئة: ${esc(S.selectedCategory)} | الوضع: ${S.selectedMode==='traditional'?'تقليدي':'ذهني'}</p></div>`;
+                html +=
+                    `<div class="glass-panel rounded-2xl p-5"><h3 class="font-extrabold mb-3">تفاصيل الجولة</h3>`;
+                S.players.forEach((p, i) => {
+                    html +=
+                        `<div class="flex justify-between items-center py-1.5 flex-wrap gap-2"><span>${avHTML(p.name,i,'sm')} ${esc(p.name)}</span><span class="text-text-muted text-xs">${rs.log[i]||'—'}</span><span class="font-bold text-xs px-3 py-1 rounded-full ${rs.scores[i]>0?'bg-lime-neon/15 text-lime-neon':'bg-magenta-neon/15 text-magenta-neon'}">+${rs.scores[i]||0}</span></div>`;
+                });
+                html += `</div>`;
+                html +=
+                    `<div class="glass-panel rounded-2xl p-5"><h3 class="font-extrabold mb-3">🏆 الترتيب العام (تراكمي)</h3>`;
+                sorted.forEach((p, i) => {
+                    const idx = S.players.indexOf(p);
+                    html +=
+                        `<div class="flex justify-between items-center py-1.5"><span>${i===0?'👑 ':i===1?'🥈 ':i===2?'🥉 ':''}${avHTML(p.name,idx,'sm')} ${esc(p.name)}</span><span class="font-extrabold">${p.totalScore||0} نقطة</span></div>`;
+                });
+                html += `</div>`;
+                $('#lb-content').innerHTML = html;
+                $('#lb-scores').innerHTML = '';
+                if (window.lucide) lucide.createIcons();
+            }
+
+            function showNewRoundScreen() {
+                showScreen('newround');
+                const cats = Object.keys(WORD_CLUSTERS);
+                const grid = $('#newround-cat-grid');
+                grid.innerHTML = cats.map(cat => {
+                    const m = CFG.CAT_META[cat] || { icon: 'box' };
+                    return `<div class="cat-card-option bg-white/[0.022] border-2 border-white/5 rounded-2xl p-4 text-center cursor-pointer transition-all hover:border-cyan-neon hover:bg-cyan-neon/5 hover:shadow-[0_0_24px_rgba(0,224,255,0.07)] hover:-translate-y-0.5 flex flex-col items-center justify-center gap-1.5 font-bold text-xs min-h-[88px]" data-cat="${esc(cat)}" tabindex="0" role="radio"><i data-lucide="${m.icon}" class="w-7 h-7 stroke-current"></i><span>${esc(cat)}</span></div>`;
+                }).join('');
+                let newCat = S.selectedCategory || cats[0];
+                let newMode = S.selectedMode || 'traditional';
+                const updateBtn = () => { $('#btn-newround-start').disabled = !newCat || !newMode; };
+                grid.querySelectorAll('.cat-card-option').forEach(cd => {
+                    if (cd.dataset.cat === newCat) cd.classList.add('!border-cyan-neon', '!bg-cyan-neon/10',
+                        '!text-cyan-neon', '!shadow-[0_0_32px_rgba(0,224,255,0.13)]');
+                    cd.addEventListener('click', () => {
+                        grid.querySelectorAll('.cat-card-option').forEach(c => c.classList.remove(
+                            '!border-cyan-neon', '!bg-cyan-neon/10', '!text-cyan-neon',
+                            '!shadow-[0_0_32px_rgba(0,224,255,0.13)]'));
+                        cd.classList.add('!border-cyan-neon', '!bg-cyan-neon/10', '!text-cyan-neon',
+                            '!shadow-[0_0_32px_rgba(0,224,255,0.13)]');
+                        newCat = cd.dataset.cat;
+                        updateBtn();
+                        hapticLight();
+                    });
+                });
+                const modeGrid = $('#newround-mode-selector');
+                modeGrid.querySelectorAll('.mode-card').forEach(mc => {
+                    if (mc.dataset.mode === newMode) mc.classList.add('!border-purple-neon',
+                        '!bg-purple-neon/10', '!shadow-[0_0_30px_rgba(180,77,255,0.14)]');
+                    mc.addEventListener('click', () => {
+                        modeGrid.querySelectorAll('.mode-card').forEach(x => x.classList.remove(
+                            '!border-purple-neon', '!bg-purple-neon/10',
+                            '!shadow-[0_0_30px_rgba(180,77,255,0.14)]'));
+                        mc.classList.add('!border-purple-neon', '!bg-purple-neon/10',
+                            '!shadow-[0_0_30px_rgba(180,77,255,0.14)]');
+                        newMode = mc.dataset.mode;
+                        updateBtn();
+                        hapticLight();
+                    });
+                });
+                updateBtn();
+                $('#btn-newround-start').onclick = () => {
+                    if (!newCat || !newMode) return;
+                    S.selectedCategory = newCat;
+                    S.selectedMode = newMode;
+                    hapticSuccess();
+                    startNewRound();
+                };
+                $('#btn-newround-cancel').onclick = () => { showLeaderboard(); };
+                if (window.lucide) lucide.createIcons();
+            }
+
+            function startNewRound() {
+                const cat = S.selectedCategory || Object.keys(WORD_CLUSTERS)[0];
+                const clusters = WORD_CLUSTERS[cat];
+                if (!clusters || clusters.length === 0) { toast('لا توجد كلمات في هذه الفئة!', 2500); return; }
+                const cluster = clusters[randInt(0, clusters.length - 1)];
+                S.secretWord = cluster[0];
+                S.oddIndex = randInt(0, S.players.length - 1);
+                if (S.selectedMode === 'mindbending') {
+                    const related = cluster.slice(1);
+                    S.oddWord = related[randInt(0, related.length - 1)];
+                } else { S.oddWord = null; }
+                S.currentRevealIdx = 0;
+                S.revealFlipped = false;
+                S.currentQRound = 0;
+                S.qUsedPairs = [];
+                S.currentVoterIdx = 0;
+                S.votes = new Array(S.players.length).fill(-1);
+                S.roundScores = null;
+                setupSecretReveal();
+            }
+
+            function resetToLanding() {
+                S.players = [];
+                S.selectedCategory = Object.keys(WORD_CLUSTERS)[0];
+                S.selectedMode = 'traditional';
+                S.secretWord = null;
+                S.oddIndex = null;
+                S.oddWord = null;
+                S.roundScores = null;
+                S.votes = [];
+                S.rngSeed = Date.now();
+                renderSetup();
+                showScreen('landing');
+                toast('تم إعادة ضبط اللعبة', 1800);
+            }
+
+            // ═══════════════════════════════════════
+            // 🔵 ONLINE FUNCTIONS — Supabase Realtime
+            // ═══════════════════════════════════════
+
+            // ─── Generate 6-digit room code ───
+            function generateRoomCode() {
+                return String(100000 + Math.floor(Math.random() * 900000));
+            }
+
+            // ─── Initialize Supabase ───
+            function initSupabase() {
+                if (!SUPABASE_URL || SUPABASE_URL.includes('YOUR_PROJECT')) {
+                    toast('⚠️ يرجى إعداد Supabase أولاً!', 4000);
+                    return null;
+                }
+                try {
+                    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    OS.supabase = sb;
+                    return sb;
+                } catch (e) {
+                    console.error('Supabase init error:', e);
+                    toast('❌ فشل الاتصال بـ Supabase', 3000);
+                    return null;
+                }
+            }
+
+            // ─── Get or create client ID ───
+            function getClientId() {
+                let id = localStorage.getItem('barra_client_id');
+                if (!id) {
+                    id = crypto.randomUUID ? crypto.randomUUID() : 'client_' + Date.now() + '_' + Math.random().toString(36)
+                        .slice(2, 8);
+                    localStorage.setItem('barra_client_id', id);
+                }
+                return id;
+            }
+
+            // ─── Online: Create room ───
+            async function createOnlineRoom(roomName, isPublic) {
+                const sb = OS.supabase;
+                if (!sb) return null;
+                const code = generateRoomCode();
+                const clientId = getClientId();
+                const playerName = OS.playerName || 'لاعب';
+
+                try {
+                    // 1. Create room
+                    const { data: room, error: roomErr } = await sb
+                        .from('rooms')
+                        .insert({
+                            code: code,
+                            name: roomName || 'غرفة جديدة',
+                            host_id: clientId,
+                            is_public: isPublic !== false,
+                            status: 'lobby',
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                        })
+                        .select()
+                        .single();
+
+                    if (roomErr) { console.error('Create room error:', roomErr);
+                        toast('❌ فشل إنشاء الغرفة', 2500); return null; }
+
+                    // 2. Add host as player
+                    const { data: player, error: playerErr } = await sb
+                        .from('room_players')
+                        .insert({
+                            room_id: room.id,
+                            player_name: playerName,
+                            client_id: clientId,
+                            is_ready: false,
+                            total_score: 0,
+                            is_odd: false,
+                            has_revealed: false,
+                            created_at: new Date().toISOString()
+                        })
+                        .select()
+                        .single();
+
+                    if (playerErr) { console.error('Add player error:', playerErr);
+                        toast('❌ فشل إضافة اللاعب', 2500); return null; }
+
+                    OS.roomId = room.id;
+                    OS.roomCode = code;
+                    OS.isHost = true;
+                    OS.myPlayerId = player.id;
+                    OS.clientId = clientId;
+                    OS.playerName = playerName;
+                    OS.currentPhase = 'lobby';
+
+                    // Subscribe to room changes
+                    subscribeToRoom(room.id);
+                    subscribeToPlayers(room.id);
+
+                    // Show room screen
+                    renderOnlineRoom();
+                    showScreen('online-room');
+                    toast(`✅ تم إنشاء الغرفة! الكود: ${code}`, 3000);
+                    return room;
+                } catch (e) {
+                    console.error('Create room exception:', e);
+                    toast('❌ خطأ في الاتصال', 2500);
+                    return null;
+                }
+            }
+
+            // ─── Online: Join room by code ───
+            async function joinOnlineRoom(code) {
+                const sb = OS.supabase;
+                if (!sb) return null;
+                const clientId = getClientId();
+                const playerName = OS.playerName || 'لاعب';
+
+                try {
+                    // Find room by code
+                    const { data: room, error: roomErr } = await sb
+                        .from('rooms')
+                        .select('*')
+                        .eq('code', code)
+                        .maybeSingle();
+
+                    if (roomErr || !room) { toast('❌ غرفة غير موجودة', 2000); return null; }
+
+                    if (room.status !== 'lobby' && room.status !== 'leaderboard') {
+                        toast('⚠️ اللعبة بدأت بالفعل', 2000);
+                        return null;
+                    }
+
+                    // Check if player already in room
+                    const { data: existing, error: existErr } = await sb
+                        .from('room_players')
+                        .select('*')
+                        .eq('room_id', room.id)
+                        .eq('client_id', clientId)
+                        .maybeSingle();
+
+                    if (existing) {
+                        toast('✅ أنت بالفعل في هذه الغرفة', 2000);
+                        OS.roomId = room.id;
+                        OS.roomCode = code;
+                        OS.isHost = (room.host_id === clientId);
+                        OS.myPlayerId = existing.id;
+                        OS.clientId = clientId;
+                        OS.playerName = existing.player_name;
+                        OS.currentPhase = room.status;
+                        subscribeToRoom(room.id);
+                        subscribeToPlayers(room.id);
+                        renderOnlineRoom();
+                        showScreen('online-room');
+                        return room;
+                    }
+
+                    // Add player
+                    const { data: player, error: playerErr } = await sb
+                        .from('room_players')
+                        .insert({
+                            room_id: room.id,
+                            player_name: playerName,
+                            client_id: clientId,
+                            is_ready: false,
+                            total_score: 0,
+                            is_odd: false,
+                            has_revealed: false,
+                            created_at: new Date().toISOString()
+                        })
+                        .select()
+                        .single();
+
+                    if (playerErr) { console.error('Join error:', playerErr);
+                        toast('❌ فشل الانضمام', 2000); return null; }
+
+                    OS.roomId = room.id;
+                    OS.roomCode = code;
+                    OS.isHost = (room.host_id === clientId);
+                    OS.myPlayerId = player.id;
+                    OS.clientId = clientId;
+                    OS.playerName = playerName;
+                    OS.currentPhase = room.status || 'lobby';
+                    subscribeToRoom(room.id);
+                    subscribeToPlayers(room.id);
+                    renderOnlineRoom();
+                    showScreen('online-room');
+                    toast(`✅ انضممت إلى ${room.name}`, 2000);
+                    return room;
+                } catch (e) {
+                    console.error('Join room exception:', e);
+                    toast('❌ خطأ في الاتصال', 2000);
+                    return null;
+                }
+            }
+
+            // ─── Online: Fetch public rooms ───
+            async function fetchPublicRooms() {
+                const sb = OS.supabase;
+                if (!sb) return [];
+                try {
+                    const { data, error } = await sb
+                        .from('rooms')
+                        .select('*, room_players(count)')
+                        .eq('is_public', true)
+                        .eq('status', 'lobby')
+                        .order('created_at', { ascending: false });
+
+                    if (error) { console.error('Fetch rooms error:', error); return []; }
+                    return data || [];
+                } catch (e) { return []; }
+            }
+
+            // ─── Online: Subscribe to room ───
+            function subscribeToRoom(roomId) {
+                const sb = OS.supabase;
+                if (!sb) return;
+                // Clean up old subscriptions
+                OS.subscriptions.forEach(sub => { try { sub.unsubscribe(); } catch (e) {} });
+                OS.subscriptions = [];
+
+                // Room changes
+                const roomSub = sb
+                    .channel(`room-${roomId}`)
+                    .on(
+                        'postgres_changes',
+                        { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },
+                        (payload) => {
+                            console.log('Room update:', payload);
+                            handleRoomUpdate(payload);
+                        }
+                    )
+                    .subscribe();
+
+                OS.subscriptions.push(roomSub);
+
+                // Players changes
+                const playerSub = sb
+                    .channel(`players-${roomId}`)
+                    .on(
+                        'postgres_changes',
+                        { event: '*', schema: 'public', table: 'room_players', filter: `room_id=eq.${roomId}` },
+                        (payload) => {
+                            console.log('Player update:', payload);
+                            handlePlayerUpdate(payload);
+                        }
+                    )
+                    .subscribe();
+
+                OS.subscriptions.push(playerSub);
+            }
+
+            // ─── Handle room updates ───
+            function handleRoomUpdate(payload) {
+                const newData = payload.new;
+                if (!newData) return;
+                OS.gameData = { ...OS.gameData, room: newData };
+                const phase = newData.status;
+                if (phase !== OS.currentPhase) {
+                    OS.currentPhase = phase;
+                    switch (phase) {
+                        case 'lobby':
+                            renderOnlineRoom();
+                            break;
+                        case 'reveal':
+                            showOnlineReveal();
+                            break;
+                        case 'qa':
+                            showOnlineQA();
+                            break;
+                        case 'voting':
+                            showOnlineVoting();
+                            break;
+                        case 'suspense':
+                            showOnlineSuspense();
+                            break;
+                        case 'secondchance':
+                            showOnlineSecondChance();
+                            break;
+                        case 'leaderboard':
+                            showOnlineLeaderboard();
+                            break;
+                    }
+                }
+                // Update room UI if in lobby
+                if (phase === 'lobby') renderOnlineRoom();
+            }
+
+            // ─── Handle player updates ───
+            function handlePlayerUpdate(payload) {
+                // Update player list in room
+                if (OS.currentPhase === 'lobby' || OS.currentPhase === 'reveal') {
+                    renderOnlineRoom();
+                }
+                if (payload.eventType === 'DELETE') {
+                    // Player left
+                    const removed = payload.old;
+                    if (removed && removed.id === OS.myPlayerId) {
+                        // We got kicked or left
+                        toast('⚠️ تم إخراجك من الغرفة', 2000);
+                        leaveOnlineRoom();
+                        return;
+                    }
+                }
+                // Update ready status in lobby
+                if (OS.currentPhase === 'lobby') renderOnlineRoom();
+                // Update reveal progress
+                if (OS.currentPhase === 'reveal') updateOnlineRevealProgress();
+            }
+
+            // ─── Online: Leave room ───
+            async function leaveOnlineRoom() {
+                const sb = OS.supabase;
+                if (!sb || !OS.roomId) { showScreen('online-lobby'); return; }
+                try {
+                    if (OS.myPlayerId) {
+                        await sb
+                            .from('room_players')
+                            .delete()
+                            .eq('id', OS.myPlayerId);
+                    }
+                } catch (e) {}
+                OS.subscriptions.forEach(sub => { try { sub.unsubscribe(); } catch (e) {} });
+                OS.subscriptions = [];
+                OS.roomId = null;
+                OS.roomCode = null;
+                OS.isHost = false;
+                OS.myPlayerId = null;
+                OS.currentPhase = 'lobby';
+                showScreen('online-lobby');
+                toast('🚪 غادرت الغرفة', 1500);
+            }
+
+            // ─── Online: Render room (lobby) ───
+            async function renderOnlineRoom() {
+                const sb = OS.supabase;
+                if (!sb || !OS.roomId) return;
+
+                try {
+                    // Fetch latest room data
+                    const { data: room, error: roomErr } = await sb
+                        .from('rooms')
+                        .select('*')
+                        .eq('id', OS.roomId)
+                        .single();
+
+                    if (roomErr || !room) { toast('⚠️ الغرفة غير موجودة', 2000);
+                        leaveOnlineRoom(); return; }
+
+                    const { data: players, error: playerErr } = await sb
+                        .from('room_players')
+                        .select('*')
+                        .eq('room_id', OS.roomId)
+                        .order('created_at', { ascending: true });
+
+                    if (playerErr) { console.error('Fetch players error:', playerErr); return; }
+
+                    OS.gameData = { room, players };
+                    const isHost = (room.host_id === OS.clientId);
+                    OS.isHost = isHost;
+
+                    // Update UI
+                    $('#online-room-title').textContent = `🏠 ${esc(room.name)}`;
+                    $('#online-room-code-badge').textContent = `🔑 ${room.code}`;
+                    $('#online-room-player-count').textContent = `${players.length} لاعب`;
+
+                    // Player list
+                    const list = $('#online-player-list');
+                    list.innerHTML = players.map(p => {
+                        const isMe = p.client_id === OS.clientId;
+                        const isReady = p.is_ready || false;
+                        const isOdd = p.is_odd || false;
+                        const idx = players.indexOf(p);
+                        let cls = 'player-chip';
+                        if (isReady) cls += ' ready';
+                        if (p.client_id === room.host_id) cls += ' host';
+                        if (isMe) cls += ' border-cyan-neon/50 border-2';
+                        const label = p.client_id === room.host_id ? '👑' : '';
+                        const readyLabel = isReady ? '✅' : '⏳';
+                        const meLabel = isMe ? ' (أنت)' : '';
+                        return `<span class="${cls}">${avHTML(p.player_name, idx, 'sm')} ${esc(p.player_name)}${meLabel} ${label} ${readyLabel}</span>`;
+                    }).join('');
+
+                    // Host controls
+                    const hostCtrls = $('#online-host-controls');
+                    if (isHost && room.status === 'lobby') {
+                        hostCtrls.classList.remove('hidden');
+                        // Populate category select
+                        const catSelect = $('#online-host-category');
+                        const currentCat = room.category || Object.keys(WORD_CLUSTERS)[0];
+                        catSelect.innerHTML = Object.keys(WORD_CLUSTERS).map(c =>
+                            `<option value="${esc(c)}" ${c===currentCat?'selected':''}>${esc(c)}</option>`
+                        ).join('');
+                        const modeSelect = $('#online-host-mode');
+                        const currentMode = room.mode || 'traditional';
+                        modeSelect.value = currentMode;
+
+                        const allReady = players.length >= CFG.MIN_PLAYERS && players.every(p => p.is_ready === true);
+                        const startBtn = $('#btn-online-host-start');
+                        startBtn.disabled = !allReady;
+                        $('#online-host-hint').textContent = allReady ? '✅ الجميع جاهز! اضغط للبدء' :
+                            `⏳ يحتاج ${CFG.MIN_PLAYERS} لاعبين وجاهزية الجميع (${players.filter(p=>p.is_ready).length}/${players.length})`;
+                    } else {
+                        hostCtrls.classList.add('hidden');
+                    }
+
+                    // Ready button
+                    const myPlayer = players.find(p => p.client_id === OS.clientId);
+                    if (myPlayer) {
+                        OS.myPlayerId = myPlayer.id;
+                        const readyBtn = $('#btn-online-ready');
+                        const isReady = myPlayer.is_ready || false;
+                        readyBtn.textContent = isReady ? '✅ جاهز' : '⬜ غير جاهز';
+                        readyBtn.classList.toggle('border-lime-neon', isReady);
+                        readyBtn.classList.toggle('bg-lime-neon/10', isReady);
+                        readyBtn.classList.toggle('border-white/10', !isReady);
+
+                        // Show waiting message if host and not all ready
+                        const waitMsg = $('#online-room-waiting');
+                        if (isHost && room.status === 'lobby') {
+                            const allR = players.length >= CFG.MIN_PLAYERS && players.every(p => p.is_ready === true);
+                            waitMsg.textContent = allR ? '✅ الجميع جاهز! ابدأ اللعبة' :
+                                `⏳ في انتظار تجهز جميع اللاعبين (${players.filter(p=>p.is_ready).length}/${players.length})`;
+                            waitMsg.style.display = 'block';
+                        } else if (room.status === 'lobby') {
+                            waitMsg.textContent = `⏳ في انتظار بدء اللعبة... (${players.filter(p=>p.is_ready).length}/${players.length} جاهز)`;
+                            waitMsg.style.display = 'block';
+                        } else {
+                            waitMsg.style.display = 'none';
+                        }
+                    }
+
+                    if (window.lucide) lucide.createIcons();
+                } catch (e) {
+                    console.error('Render room error:', e);
+                }
+            }
+
+            // ─── Online: Toggle ready ───
+            async function toggleReady() {
+                const sb = OS.supabase;
+                if (!sb || !OS.myPlayerId) return;
+                try {
+                    const { data: player } = await sb
+                        .from('room_players')
+                        .select('is_ready')
+                        .eq('id', OS.myPlayerId)
+                        .single();
+
+                    if (player) {
+                        await sb
+                            .from('room_players')
+                            .update({ is_ready: !player.is_ready })
+                            .eq('id', OS.myPlayerId);
+                        hapticLight();
+                    }
+                } catch (e) { console.error('Toggle ready error:', e); }
+            }
+
+            // ─── Online: Host start game ───
+            async function hostStartGame() {
+                const sb = OS.supabase;
+                if (!sb || !OS.roomId || !OS.isHost) return;
+
+                try {
+                    // Get players
+                    const { data: players, error: pErr } = await sb
+                        .from('room_players')
+                        .select('*')
+                        .eq('room_id', OS.roomId);
+
+                    if (pErr || !players || players.length < CFG.MIN_PLAYERS) {
+                        toast(`⚠️ تحتاج ${CFG.MIN_PLAYERS} لاعبين على الأقل`, 2000);
+                        return;
+                    }
+
+                    const allReady = players.every(p => p.is_ready === true);
+                    if (!allReady) { toast('⚠️ ليس الجميع جاهزاً', 2000); return; }
+
+                    const category = $('#online-host-category').value;
+                    const mode = $('#online-host-mode').value;
+
+                    // Pick secret word and odd player
+                    const clusters = WORD_CLUSTERS[category];
+                    if (!clusters || clusters.length === 0) { toast('⚠️ لا توجد كلمات لهذه الفئة', 2000); return; }
+                    const cluster = clusters[randInt(0, clusters.length - 1)];
+                    const secretWord = cluster[0];
+                    const oddIdx = randInt(0, players.length - 1);
+                    const oddPlayerId = players[oddIdx].id;
+                    let oddWord = null;
+                    if (mode === 'mindbending') {
+                        const related = cluster.slice(1);
+                        oddWord = related[randInt(0, related.length - 1)];
+                    }
+
+                    // Update room with game data
+                    await sb
+                        .from('rooms')
+                        .update({
+                            status: 'reveal',
+                            category: category,
+                            mode: mode,
+                            secret_word: secretWord,
+                            odd_player_id: oddPlayerId,
+                            odd_word: oddWord,
+                            current_round: 0,
+                            total_rounds: randInt(6, 7),
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', OS.roomId);
+
+                    // Mark odd player
+                    await sb
+                        .from('room_players')
+                        .update({ is_odd: true, has_revealed: false })
+                        .eq('id', oddPlayerId);
+
+                    // Reset others
+                    await sb
+                        .from('room_players')
+                        .update({ is_odd: false, has_revealed: false })
+                        .eq('room_id', OS.roomId)
+                        .neq('id', oddPlayerId);
+
+                    toast('🚀 بدأت اللعبة!', 2000);
+                    hapticSuccess();
+
+                } catch (e) {
+                    console.error('Start game error:', e);
+                    toast('❌ فشل بدء اللعبة', 2000);
+                }
+            }
+
+            // ─── Online: Show reveal phase ───
+            function showOnlineReveal() {
+                showScreen('online-reveal');
+                const back = $('#online-reveal-back');
+                const progress = $('#online-reveal-progress');
+
+                // Get my role from room data
+                const room = OS.gameData?.room;
+                const players = OS.gameData?.players || [];
+                const myPlayer = players.find(p => p.client_id === OS.clientId);
+
+                if (!myPlayer || !room) {
+                    back.innerHTML = '<span class="text-2xl font-black text-cyan-neon">⚠️</span><span class="text-text-dim text-xs">خطأ في تحميل البيانات</span>';
+                    return;
+                }
+
+                const isOdd = myPlayer.is_odd || false;
+                const secretWord = room.secret_word || '???';
+                const oddWord = room.odd_word || null;
+
+                if (isOdd && room.mode === 'traditional') {
+                    back.innerHTML =
+                        `<span class="text-2xl font-black text-magenta-neon">🕵️ أنت برا السالفة!</span><span class="text-text-dim text-xs">حاول تندمج... لا تخلي أحد يعرف!</span>`;
+                } else if (isOdd && room.mode === 'mindbending') {
+                    back.innerHTML =
+                        `<span class="text-2xl font-black text-cyan-neon tracking-wider">${esc(oddWord || '???')}</span><span class="text-text-dim text-xs">احفظ الكلمة... لا تقلها لأحد!</span>`;
+                } else {
+                    back.innerHTML =
+                        `<span class="text-2xl font-black text-cyan-neon tracking-wider">${esc(secretWord)}</span><span class="text-text-dim text-xs">احفظ الكلمة... لا تقلها لأحد!</span>`;
+                }
+
+                // Auto-reveal: card is already flipped
+                const card = document.querySelector('#online-reveal-content .reveal-card');
+                if (card) card.classList.add('flipped');
+
+                // Update progress
+                const revealed = players.filter(p => p.has_revealed === true).length;
+                progress.textContent = `✅ ${revealed}/${players.length} لاعبين اطلعوا على دورهم`;
+
+                // Ready button
+                const readyBtn = $('#btn-online-reveal-ready');
+                if (myPlayer.has_revealed) {
+                    readyBtn.textContent = '✅ تم';
+                    readyBtn.disabled = true;
+                    readyBtn.classList.add('opacity-50');
+                } else {
+                    readyBtn.textContent = '✅ جاهز للمرحلة التالية';
+                    readyBtn.disabled = false;
+                    readyBtn.classList.remove('opacity-50');
+                    readyBtn.onclick = async () => {
+                        await sb
+                            .from('room_players')
+                            .update({ has_revealed: true })
+                            .eq('id', OS.myPlayerId);
+                        hapticSuccess();
+                        readyBtn.textContent = '✅ تم';
+                        readyBtn.disabled = true;
+                        readyBtn.classList.add('opacity-50');
+                        // Check if all revealed
+                        const { data: updated } = await sb
+                            .from('room_players')
+                            .select('has_revealed')
+                            .eq('room_id', OS.roomId);
+                        if (updated && updated.every(p => p.has_revealed === true)) {
+                            // Move to QA phase
+                            await sb
+                                .from('rooms')
+                                .update({ status: 'qa', current_round: 0, updated_at: new Date().toISOString() })
+                                .eq('id', OS.roomId);
+                            toast('🎤 الجميع جاهز! مرحلة الأسئلة تبدأ', 2000);
+                        }
+                    };
+                }
+            }
+
+            function updateOnlineRevealProgress() {
+                const players = OS.gameData?.players || [];
+                const revealed = players.filter(p => p.has_revealed === true).length;
+                const progress = $('#online-reveal-progress');
+                if (progress) progress.textContent = `✅ ${revealed}/${players.length} لاعبين اطلعوا على دورهم`;
+            }
+
+            // ─── Online: Show QA phase ───
+            async function showOnlineQA() {
+                showScreen('online-qa');
+                const sb = OS.supabase;
+                if (!sb || !OS.roomId) return;
+
+                // Fetch current room state
+                const { data: room } = await sb
+                    .from('rooms')
+                    .select('*')
+                    .eq('id', OS.roomId)
+                    .single();
+
+                if (!room) { toast('⚠️ خطأ في الغرفة', 2000); return; }
+
+                const players = OS.gameData?.players || [];
+                const myPlayer = players.find(p => p.client_id === OS.clientId);
+                if (!myPlayer) return;
+
+                OS.qaTotalRounds = room.total_rounds || 6;
+                OS.qaRound = room.current_round || 0;
+
+                // Determine roles for this round
+                // Use a deterministic but random pairing based on round number
+                const n = players.length;
+                const round = OS.qaRound;
+                // Pairing: asker = round % n, respondent = (round + 1) % n
+                const askerIdx = round % n;
+                const respondentIdx = (round + 1) % n;
+                const asker = players[askerIdx];
+                const respondent = players[respondentIdx];
+
+                const isAsker = asker.client_id === OS.clientId;
+                const isRespondent = respondent.client_id === OS.clientId;
+                const isSpectator = !isAsker && !isRespondent;
+
+                OS.qaRole = isAsker ? 'asker' : isRespondent ? 'respondent' : 'spectator';
+                OS.qaQuestion = null;
+                OS.qaAnswer = null;
+                OS.qaAnswered = false;
+
+                // Update round badge
+                $('#online-qa-round').textContent = `الجولة ${round+1} من ${OS.qaTotalRounds}`;
+
+                // Show/hide views
+                $('#online-qa-asker-view').classList.toggle('hidden', !isAsker);
+                $('#online-qa-respondent-view').classList.toggle('hidden', !isRespondent);
+                $('#online-qa-spectator-view').classList.toggle('hidden', !isSpectator);
+                $('#online-qa-waiting').classList.add('hidden');
+
+                // Reset timer
+                if (OS.qaTimerInterval) { clearInterval(OS.qaTimerInterval);
+                    OS.qaTimerInterval = null; }
+
+                if (isAsker) {
+                    // Asker: show question input
+                    $('#online-qa-asker-prompt').textContent = `${esc(asker.player_name)}، اسأل ${esc(respondent.player_name)}:`;
+                    const input = $('#online-qa-question-input');
+                    input.value = '';
+                    input.disabled = false;
+                    input.focus();
+                    const sendBtn = $('#btn-online-qa-send-q');
+                    sendBtn.disabled = false;
+                    sendBtn.onclick = async () => {
+                        const q = input.value.trim();
+                        if (!q) { toast('اكتب سؤالاً!', 1500); return; }
+                        // Save question to room
+                        await sb
+                            .from('rooms')
+                            .update({
+                                current_question: q,
+                                current_asker_id: asker.id,
+                                current_respondent_id: respondent.id,
+                                updated_at: new Date().toISOString()
+                            })
+                            .eq('id', OS.roomId);
+                        hapticSuccess();
+                        input.disabled = true;
+                        sendBtn.disabled = true;
+                        toast('✅ تم إرسال السؤال!', 1500);
+                        // Start timer for respondent
+                        startQATimer(45, 'respondent');
+                    };
+                    // Timer for asker (thinking time)
+                    startQATimer(45, 'asker');
+                }
+
+                if (isRespondent) {
+                    // Respondent: wait for question, show answer input
+                    const qDisplay = $('#online-qa-received-q');
+                    qDisplay.textContent = '⏳ في انتظار السؤال...';
+                    const input = $('#online-qa-answer-input');
+                    input.value = '';
+                    input.disabled = true;
+                    const sendBtn = $('#btn-online-qa-send-a');
+                    sendBtn.disabled = true;
+
+                    // Subscribe to room changes for question
+                    const qSub = sb
+                        .channel(`qa-${OS.roomId}`)
+                        .on(
+                            'postgres_changes',
+                            { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${OS.roomId}` },
+                            async (payload) => {
+                                const newRoom = payload.new;
+                                if (newRoom.current_question && newRoom.current_question !== OS.qaQuestion) {
+                                    OS.qaQuestion = newRoom.current_question;
+                                    qDisplay.textContent = `❓ ${esc(newRoom.current_question)}`;
+                                    input.disabled = false;
+                                    input.focus();
+                                    sendBtn.disabled = false;
+                                    sendBtn.onclick = async () => {
+                                        const ans = input.value.trim();
+                                        if (!ans) { toast('اكتب إجابة!', 1500); return; }
+                                        await sb
+                                            .from('rooms')
+                                            .update({
+                                                current_answer: ans,
+                                                updated_at: new Date().toISOString()
+                                            })
+                                            .eq('id', OS.roomId);
+                                        hapticSuccess();
+                                        input.disabled = true;
+                                        sendBtn.disabled = true;
+                                        toast('✅ تم إرسال الإجابة!', 1500);
+                                    };
+                                    // Start timer for respondent to answer
+                                    startQATimer(45, 'respondent');
+                                }
+                            }
+                        )
+                        .subscribe();
+                    OS.subscriptions.push(qSub);
+                }
+
+                if (isSpectator) {
+                    // Spectator: show question and answer as they come
+                    const content = $('#online-qa-spectator-content');
+                    content.innerHTML = '<div class="text-text-dim text-sm text-center py-4">⏳ في انتظار السؤال...</div>';
+
+                    // Subscribe to room changes
+                    const specSub = sb
+                        .channel(`qa-spec-${OS.roomId}`)
+                        .on(
+                            'postgres_changes',
+                            { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${OS.roomId}` },
+                            (payload) => {
+                                const newRoom = payload.new;
+                                if (newRoom.current_question) {
+                                    let html = `<div class="spectator-question">❓ ${esc(newRoom.current_question)}</div>`;
+                                    if (newRoom.current_answer) {
+                                        html +=
+                                            `<div class="spectator-answer">💬 ${esc(newRoom.current_answer)}</div>`;
+                                    }
+                                    // Show who asked and answered
+                                    const askerP = players.find(p => p.id === newRoom.current_asker_id);
+                                    const respP = players.find(p => p.id === newRoom.current_respondent_id);
+                                    if (askerP && respP) {
+                                        html =
+                                            `<div class="text-text-dim text-xs">${esc(askerP.player_name)} → ${esc(respP.player_name)}</div>` +
+                                            html;
+                                    }
+                                    content.innerHTML = html;
+                                }
+                            }
+                        )
+                        .subscribe();
+                    OS.subscriptions.push(specSub);
+                }
+
+                // Show next button or vote transition
+                const isLastRound = (round + 1 >= OS.qaTotalRounds);
+                $('#btn-online-qa-next').classList.toggle('hidden', isLastRound || !isSpectator);
+                $('#btn-online-qa-to-vote').classList.toggle('hidden', !isLastRound || !isSpectator);
+
+                // Next round button (for spectators to advance)
+                $('#btn-online-qa-next').onclick = async () => {
+                    if (!isSpectator) return;
+                    // Check if question and answer are present
+                    const { data: r } = await sb
+                        .from('rooms')
+                        .select('current_question, current_answer')
+                        .eq('id', OS.roomId)
+                        .single();
+                    if (!r || !r.current_question || !r.current_answer) {
+                        toast('⏳ في انتظار السؤال والإجابة', 1500);
+                        return;
+                    }
+                    // Advance round
+                    await sb
+                        .from('rooms')
+                        .update({
+                            current_round: round + 1,
+                            current_question: null,
+                            current_answer: null,
+                            current_asker_id: null,
+                            current_respondent_id: null,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', OS.roomId);
+                    hapticLight();
+                    // If last round, move to voting
+                    if (round + 1 >= OS.qaTotalRounds) {
+                        await sb
+                            .from('rooms')
+                            .update({ status: 'voting', updated_at: new Date().toISOString() })
+                            .eq('id', OS.roomId);
+                        toast('🗳️ بدء التصويت!', 1500);
+                    } else {
+                        // Reload QA
+                        showOnlineQA();
+                    }
+                };
+
+                // Vote transition button
+                $('#btn-online-qa-to-vote').onclick = async () => {
+                    if (!isSpectator) return;
+                    const { data: r } = await sb
+                        .from('rooms')
+                        .select('current_question, current_answer')
+                        .eq('id', OS.roomId)
+                        .single();
+                    if (!r || !r.current_question || !r.current_answer) {
+                        toast('⏳ في انتظار السؤال والإجابة', 1500);
+                        return;
+                    }
+                    await sb
+                        .from('rooms')
+                        .update({ status: 'voting', updated_at: new Date().toISOString() })
+                        .eq('id', OS.roomId);
+                    toast('🗳️ بدء التصويت!', 1500);
+                };
+
+                if (window.lucide) lucide.createIcons();
+            }
+
+            // ─── QA Timer ───
+            function startQATimer(seconds, role) {
+                if (OS.qaTimerInterval) { clearInterval(OS.qaTimerInterval);
+                    OS.qaTimerInterval = null; }
+                let remaining = seconds;
+                const timerEl = role === 'asker' ? $('#online-qa-timer') : $('#online-qa-timer-respondent');
+                if (!timerEl) return;
+                timerEl.textContent = remaining;
+                timerEl.classList.remove('warning');
+                OS.qaTimerInterval = setInterval(() => {
+                    remaining--;
+                    timerEl.textContent = remaining;
+                    if (remaining <= 10) timerEl.classList.add('warning');
+                    if (remaining <= 0) {
+                        clearInterval(OS.qaTimerInterval);
+                        OS.qaTimerInterval = null;
+                        timerEl.textContent = '⏰';
+                        toast('⏰ انتهى الوقت!', 1500);
+                    }
+                }, 1000);
+            }
+
+            // ─── Online: Show voting ───
+            async function showOnlineVoting() {
+                showScreen('online-voting');
+                const sb = OS.supabase;
+                if (!sb || !OS.roomId) return;
+
+                const players = OS.gameData?.players || [];
+                const myPlayer = players.find(p => p.client_id === OS.clientId);
+                if (!myPlayer) return;
+
+                const options = $('#online-voting-options');
+                options.innerHTML = players
+                    .filter(p => p.id !== myPlayer.id)
+                    .map(p => {
+                        const idx = players.indexOf(p);
+                        return `<div class="vote-option" data-player-id="${p.id}" data-idx="${idx}">
+                  ${avHTML(p.player_name, idx, 'sm')} ${esc(p.player_name)}
+                </div>`;
+                    })
+                    .join('');
+
+                OS.voteSelection = null;
+                options.querySelectorAll('.vote-option').forEach(el => {
+                    el.addEventListener('click', async () => {
+                        options.querySelectorAll('.vote-option').forEach(o => o.classList.remove(
+                        'selected'));
+                        el.classList.add('selected');
+                        const targetId = el.dataset.playerId;
+                        OS.voteSelection = targetId;
+                        hapticLight();
+                        // Submit vote
+                        await sb
+                            .from('votes')
+                            .insert({
+                                room_id: OS.roomId,
+                                voter_id: myPlayer.id,
+                                voted_for_id: targetId,
+                                created_at: new Date().toISOString()
+                            });
+                        toast('✅ تم تسجيل صوتك', 1500);
+                        options.querySelectorAll('.vote-option').forEach(o => o.style.pointerEvents = 'none');
+                        // Check if all voted
+                        const { data: votes } = await sb
+                            .from('votes')
+                            .select('voter_id')
+                            .eq('room_id', OS.roomId);
+                        const uniqueVoters = new Set(votes?.map(v => v.voter_id) || []);
+                        const totalPlayers = players.length;
+                        if (uniqueVoters.size >= totalPlayers) {
+                            $('#online-voting-status').textContent = '✅ الجميع صوّت!';
+                            $('#btn-online-voting-done').classList.remove('hidden');
+                            $('#btn-online-voting-done').onclick = async () => {
+                                await sb
+                                    .from('rooms')
+                                    .update({ status: 'suspense', updated_at: new Date().toISOString() })
+                                    .eq('id', OS.roomId);
+                                toast('🔮 كشف النتيجة...', 1500);
+                            };
+                        } else {
+                            $('#online-voting-status').textContent =
+                                `⏳ ${uniqueVoters.size}/${totalPlayers} صوّتوا`;
+                        }
+                    });
+                });
+            }
+
+            // ─── Online: Show suspense ───
+            async function showOnlineSuspense() {
+                showScreen('online-suspense');
+                const sb = OS.supabase;
+                if (!sb || !OS.roomId) return;
+
+                const { data: room } = await sb
+                    .from('rooms')
+                    .select('*')
+                    .eq('id', OS.roomId)
+                    .single();
+
+                if (!room) { toast('⚠️ خطأ في البيانات', 2000); return; }
+
+                const players = OS.gameData?.players || [];
+                const votes = await sb
+                    .from('votes')
+                    .select('*')
+                    .eq('room_id', OS.roomId);
+
+                // Count votes
+                const vc = {};
+                votes.data?.forEach(v => { vc[v.voted_for_id] = (vc[v.voted_for_id] || 0) + 1; });
+                let maxV = 0,
+                    maxId = null;
+                for (const [id, count] of Object.entries(vc)) {
+                    if (count > maxV) { maxV = count;
+                        maxId = id; }
+                }
+
+                const caughtPlayer = players.find(p => p.id === maxId);
+                const oddPlayer = players.find(p => p.id === room.odd_player_id);
+                const oddCaught = maxId === room.odd_player_id;
+
+                const content = $('#online-suspense-content');
+                content.innerHTML = `
+            <div class="glass-panel rounded-2xl p-6 text-center">
+              <p class="text-text-muted">اللاعبون صوّتوا على استبعاد:</p>
+              <h1 class="text-magenta-neon font-black text-3xl mt-2">${caughtPlayer ? esc(caughtPlayer.player_name) : '???'}</h1>
+            </div>
+            <div class="glass-panel rounded-2xl p-6 text-center border-2 ${oddCaught ? 'border-lime-neon' : 'border-magenta-neon'}">
+              <p class="text-text-muted">الشخص الذي كان برا السالفة هو...</p>
+              <h1 class="${oddCaught ? 'text-lime-neon' : 'text-magenta-neon'} font-black text-4xl mt-2">${oddPlayer ? esc(oddPlayer.player_name) : '???'}</h1>
+              <p class="text-text-dim text-xs mt-2">الكلمة السرية: ${esc(room.secret_word || '???')}</p>
+              ${room.odd_word ? `<p class="text-text-dim text-xs">كلمة الوضع الذهني: ${esc(room.odd_word)}</p>` : ''}
+            </div>
+            <div class="glass-panel rounded-2xl p-4 text-center">
+              <p class="text-text-dim">نتيجة: ${oddCaught ? '🎉 تم الكشف عن برا السالفة!' : '😈 برا السالفة نجح في التمويه!'}</p>
+            </div>
+          `;
+
+                // Store suspense data for scoring
+                OS.suspenseData = { oddCaught, caughtPlayer: caughtPlayer, oddPlayer };
+
+                $('#online-suspense-continue').classList.remove('hidden');
+                $('#online-suspense-continue').onclick = async () => {
+                    if (oddCaught) {
+                        await sb
+                            .from('rooms')
+                            .update({ status: 'secondchance', updated_at: new Date().toISOString() })
+                            .eq('id', OS.roomId);
+                        toast('🎯 فرصة الإنقاذ للاعب المكشوف', 1500);
+                    } else {
+                        await computeOnlineScores();
+                        await sb
+                            .from('rooms')
+                            .update({ status: 'leaderboard', updated_at: new Date().toISOString() })
+                            .eq('id', OS.roomId);
+                        toast('🏆 عرض النتائج', 1500);
+                    }
+                };
+            }
+
+            // ─── Online: Show second chance ───
+            async function showOnlineSecondChance() {
+                showScreen('online-secondchance');
+                const sb = OS.supabase;
+                if (!sb || !OS.roomId) return;
+
+                const { data: room } = await sb
+                    .from('rooms')
+                    .select('*')
+                    .eq('id', OS.roomId)
+                    .single();
+
+                if (!room) { toast('⚠️ خطأ', 2000); return; }
+
+                const players = OS.gameData?.players || [];
+                const myPlayer = players.find(p => p.client_id === OS.clientId);
+                const oddPlayer = players.find(p => p.id === room.odd_player_id);
+
+                const isOddPlayer = myPlayer && myPlayer.id === room.odd_player_id;
+
+                $('#online-sc-prompt').textContent = isOddPlayer ?
+                    `${esc(myPlayer.player_name)}، تم كشفك! لديك فرصة للإنقاذ...` :
+                    `⏳ ${esc(oddPlayer ? oddPlayer.player_name : 'اللاعب')} يحاول إنقاذ نفسه...`;
+
+                const scOptions = $('#online-sc-options');
+                const correct = room.secret_word || '???';
+                const cluster = WORD_CLUSTERS[room.category]?.find(c => c.includes(correct)) || [correct, 'غير معروف',
+                    'غير معروف', 'غير معروف'
+                ];
+                const distractors = shuffle(cluster.filter(w => w !== correct)).slice(0, 3);
+                const options = shuffle([correct, ...distractors]);
+
+                if (isOddPlayer) {
+                    scOptions.innerHTML = options.map(w =>
+                        `<div class="second-chance-option" data-word="${esc(w)}">${esc(w)}</div>`
+                    ).join('');
+                    let selected = null;
+                    scOptions.querySelectorAll('.second-chance-option').forEach(el => {
+                        el.addEventListener('click', () => {
+                            scOptions.querySelectorAll('.second-chance-option').forEach(o => o.classList
+                                .remove('selected'));
+                            el.classList.add('selected');
+                            selected = el.dataset.word;
+                            $('#btn-online-sc-confirm').classList.remove('hidden');
+                            hapticLight();
+                        });
+                    });
+                    $('#btn-online-sc-confirm').onclick = async () => {
+                        if (!selected) { toast('اختر كلمة!', 1500); return; }
+                        const isCorrect = selected === correct;
+                        OS.scCorrect = isCorrect;
+                        if (isCorrect) {
+                            $('#online-sc-result').innerHTML =
+                                '<span class="text-lime-neon font-extrabold">✅ إجابة صحيحة! +20 نقطة إنقاذ</span>';
+                            spawnCF(50);
+                            // Add points
+                            await computeOnlineScores(true);
+                        } else {
+                            $('#online-sc-result').innerHTML =
+                                `<span class="text-magenta-neon font-extrabold">❌ خطأ! الكلمة الصحيحة: ${esc(correct)}</span>`;
+                        }
+                        $('#btn-online-sc-confirm').classList.add('hidden');
+                        scOptions.querySelectorAll('.second-chance-option').forEach(o => o.style.pointerEvents =
+                            'none');
+                        $('#btn-online-sc-next').classList.remove('hidden');
+                        hapticSuccess();
+                    };
+                    $('#btn-online-sc-next').onclick = async () => {
+                        await sb
+                            .from('rooms')
+                            .update({ status: 'leaderboard', updated_at: new Date().toISOString() })
+                            .eq('id', OS.roomId);
+                        toast('🏆 عرض النتائج', 1500);
+                    };
+                } else {
+                    scOptions.innerHTML =
+                        `<div class="text-text-dim text-center py-4">⏳ في انتظار اختيار ${esc(oddPlayer ? oddPlayer.player_name : 'اللاعب')}...</div>`;
+                    // Subscribe to room changes to know when second chance is done
+                    const scSub = sb
+                        .channel(`sc-${OS.roomId}`)
+                        .on(
+                            'postgres_changes',
+                            { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${OS.roomId}` },
+                            (payload) => {
+                                if (payload.new.status === 'leaderboard') {
+                                    toast('🏆 تم الانتهاء من فرصة الإنقاذ', 1500);
+                                    showOnlineLeaderboard();
+                                }
+                            }
+                        )
+                        .subscribe();
+                    OS.subscriptions.push(scSub);
+                }
+            }
+
+            // ─── Online: Compute scores ───
+            async function computeOnlineScores(secondChanceBonus = false) {
+                const sb = OS.supabase;
+                if (!sb || !OS.roomId) return;
+
+                const { data: room } = await sb
+                    .from('rooms')
+                    .select('*')
+                    .eq('id', OS.roomId)
+                    .single();
+
+                if (!room) return;
+
+                const players = OS.gameData?.players || [];
+                const votes = await sb
+                    .from('votes')
+                    .select('*')
+                    .eq('room_id', OS.roomId);
+
+                // Count votes
+                const vc = {};
+                votes.data?.forEach(v => { vc[v.voted_for_id] = (vc[v.voted_for_id] || 0) + 1; });
+                let maxV = 0,
+                    maxId = null;
+                for (const [id, count] of Object.entries(vc)) {
+                    if (count > maxV) { maxV = count;
+                        maxId = id; }
+                }
+
+                const oddId = room.odd_player_id;
+                const oddCaught = maxId === oddId;
+
+                // Compute scores per player
+                const scoreMap = {};
+                players.forEach(p => { scoreMap[p.id] = 0; });
+
+                // Points for correct votes
+                votes.data?.forEach(v => {
+                    if (v.voted_for_id === oddId) {
+                        scoreMap[v.voter_id] = (scoreMap[v.voter_id] || 0) + 10;
+                    }
+                });
+
+                if (!oddCaught) {
+                    scoreMap[oddId] = (scoreMap[oddId] || 0) + 30;
+                }
+
+                if (oddCaught) {
+                    const missed = players.length - (vc[oddId] || 0);
+                    scoreMap[oddId] = (scoreMap[oddId] || 0) + missed * 5;
+                    // Players who weren't voted for get bonus
+                    players.forEach(p => {
+                        if (p.id !== oddId && !vc[p.id]) {
+                            scoreMap[p.id] = (scoreMap[p.id] || 0) + 15;
+                        }
+                    });
+                }
+
+                if (secondChanceBonus) {
+                    scoreMap[oddId] = (scoreMap[oddId] || 0) + 20;
+                }
+
+                // Update player scores
+                for (const p of players) {
+                    const addScore = scoreMap[p.id] || 0;
+                    if (addScore > 0) {
+                        await sb
+                            .from('room_players')
+                            .update({ total_score: (p.total_score || 0) + addScore })
+                            .eq('id', p.id);
+                    }
+                }
+
+                // Store round scores in room for display
+                await sb
+                    .from('rooms')
+                    .update({
+                        round_scores: scoreMap,
+                        round_odd_caught: oddCaught,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', OS.roomId);
+
+                OS.lbData = { scoreMap, oddCaught, oddId, players };
+            }
+
+            // ─── Online: Show leaderboard ───
+            async function showOnlineLeaderboard() {
+                showScreen('online-leaderboard');
+                const sb = OS.supabase;
+                if (!sb || !OS.roomId) return;
+
+                const { data: room } = await sb
+                    .from('rooms')
+                    .select('*')
+                    .eq('id', OS.roomId)
+                    .single();
+
+                const players = OS.gameData?.players || [];
+                const sorted = [...players].sort((a, b) => (b.total_score || 0) - (a.total_score || 0));
+
+                let html = '';
+                html +=
+                    `<div class="glass-panel rounded-2xl p-4 text-center"><p class="text-text-muted text-sm">الكلمة السرية: <span class="text-cyan-neon font-bold">${esc(room?.secret_word || '???')}</span></p></div>`;
+                html += `<div class="glass-panel rounded-2xl p-4"><h3 class="font-extrabold mb-3">🏆 الترتيب</h3>`;
+                sorted.forEach((p, i) => {
+                    const idx = players.indexOf(p);
+                    html +=
+                        `<div class="flex justify-between items-center py-2 border-b border-white/5 last:border-0"><span>${i===0?'👑 ':i===1?'🥈 ':i===2?'🥉 ':''}${avHTML(p.player_name, idx, 'sm')} ${esc(p.player_name)}</span><span class="font-extrabold">${p.total_score||0} نقطة</span></div>`;
+                });
+                html += `</div>`;
+                $('#online-lb-content').innerHTML = html;
+                $('#online-lb-headline').textContent = room?.round_odd_caught ? '🎉 تم الكشف عن برا السالفة!' :
+                    '😈 برا السالفة فاز!';
+
+                // Show buttons for host
+                const isHost = OS.isHost;
+                if (isHost) {
+                    $('#btn-online-lb-newround').style.display = 'block';
+                    $('#btn-online-lb-newround').onclick = async () => {
+                        // Reset for new round
+                        await sb
+                            .from('rooms')
+                            .update({
+                                status: 'lobby',
+                                secret_word: null,
+                                odd_player_id: null,
+                                odd_word: null,
+                                current_round: 0,
+                                current_question: null,
+                                current_answer: null,
+                                current_asker_id: null,
+                                current_respondent_id: null,
+                                round_scores: null,
+                                round_odd_caught: null,
+                                updated_at: new Date().toISOString()
+                            })
+                            .eq('id', OS.roomId);
+                        // Reset player states
+                        await sb
+                            .from('room_players')
+                            .update({ is_ready: false, is_odd: false, has_revealed: false })
+                            .eq('room_id', OS.roomId);
+                        // Clear votes
+                        await sb
+                            .from('votes')
+                            .delete()
+                            .eq('room_id', OS.roomId);
+                        toast('🔄 جولة جديدة! استعدوا', 2000);
+                        OS.currentPhase = 'lobby';
+                        renderOnlineRoom();
+                        showScreen('online-room');
+                    };
+                } else {
+                    $('#btn-online-lb-newround').style.display = 'none';
+                }
+
+                $('#btn-online-lb-leave').onclick = () => {
+                    leaveOnlineRoom();
+                };
+            }
+
+            // ─── Online: List public rooms ───
+            async function renderPublicRooms() {
+                const rooms = await fetchPublicRooms();
+                const list = $('#online-public-list');
+                if (!rooms.length) {
+                    list.innerHTML = '<div class="text-text-dim text-sm text-center py-8">لا توجد غرف عامة حالياً</div>';
+                    return;
+                }
+                list.innerHTML = rooms.map(r => {
+                    const count = r.room_players?.[0]?.count || 0;
+                    return `<div class="room-card flex items-center justify-between gap-3" data-code="${r.code}">
+                <div>
+                  <div class="font-bold">${esc(r.name)}</div>
+                  <div class="text-text-dim text-xs">🔑 ${r.code} • ${count} لاعب</div>
+                </div>
+                <button class="btn-press px-4 py-2 bg-cyan-neon/20 text-cyan-neon font-bold rounded-xl text-sm border border-cyan-neon/30 hover:bg-cyan-neon/30 transition-all join-public-btn" data-code="${r.code}">انضمام</button>
+              </div>`;
+                }).join('');
+                list.querySelectorAll('.join-public-btn').forEach(btn => {
+                    btn.addEventListener('click', async () => {
+                        const code = btn.dataset.code;
+                        await joinOnlineRoom(code);
+                    });
+                });
+            }
+
+            // ─── Online: Show lobby screen ───
+            function showOnlineLobby() {
+                showScreen('online-lobby');
+                // Populate category select for host create
+                const catSelect = $('#online-host-category');
+                if (catSelect) {
+                    catSelect.innerHTML = Object.keys(WORD_CLUSTERS).map(c =>
+                        `<option value="${esc(c)}">${esc(c)}</option>`
+                    ).join('');
+                }
+                renderPublicRooms();
+                // Refresh public rooms every 10s
+                if (window._publicRefresh) clearInterval(window._publicRefresh);
+                window._publicRefresh = setInterval(renderPublicRooms, 10000);
+            }
+
+            // ─── Online: Init ───
+            function initOnline() {
+                const sb = initSupabase();
+                if (!sb) {
+                    toast('⚠️ يرجى إعداد مفاتيح Supabase في الكود', 4000);
+                    return;
+                }
+                OS.clientId = getClientId();
+                // Check if we have a stored room
+                const storedRoom = localStorage.getItem('barra_room_id');
+                if (storedRoom) {
+                    OS.roomId = storedRoom;
+                    // Try to rejoin
+                    joinOnlineRoomFromStorage();
+                }
+                showOnlineLobby();
+            }
+
+            async function joinOnlineRoomFromStorage() {
+                // Attempt to rejoin
+                const sb = OS.supabase;
+                if (!sb || !OS.roomId) return;
+                try {
+                    const { data: room } = await sb
+                        .from('rooms')
+                        .select('*')
+                        .eq('id', OS.roomId)
+                        .single();
+                    if (room) {
+                        OS.roomCode = room.code;
+                        OS.isHost = (room.host_id === OS.clientId);
+                        OS.currentPhase = room.status || 'lobby';
+                        OS.playerName = localStorage.getItem('barra_player_name') || 'لاعب';
+                        subscribeToRoom(OS.roomId);
+                        subscribeToPlayers(OS.roomId);
+                        renderOnlineRoom();
+                        showScreen('online-room');
+                        return;
+                    }
+                } catch (e) {}
+                localStorage.removeItem('barra_room_id');
+            }
+
+            // ─── Online event bindings ───
+            function bindOnlineEvents() {
+                // Mode picker
+                $('#btn-mode-local').addEventListener('click', () => {
+                    hapticLight();
+                    showScreen('setup');
+                    renderSetup();
+                });
+
+                $('#btn-mode-online').addEventListener('click', () => {
+                    hapticLight();
+                    // Initialize Supabase and show online lobby
+                    const sb = initSupabase();
+                    if (!sb) return;
+                    OS.clientId = getClientId();
+                    OS.playerName = localStorage.getItem('barra_player_name') || prompt('ادخل اسمك:', 'لاعب') || 'لاعب';
+                    localStorage.setItem('barra_player_name', OS.playerName);
+                    showOnlineLobby();
+                });
+
+                $('#btn-mode-back').addEventListener('click', () => {
+                    hapticLight();
+                    showScreen('landing');
+                });
+
+                // Online lobby back
+                $('#btn-online-back').addEventListener('click', () => {
+                    hapticLight();
+                    if (window._publicRefresh) clearInterval(window._publicRefresh);
+                    showScreen('modepicker');
+                });
+
+                // Tab switching
+                document.querySelectorAll('.online-tab-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.online-tab-btn').forEach(b => b.classList.remove(
+                            'bg-cyan-neon/10', 'text-cyan-neon'));
+                        b.classList.add('text-text-muted');
+                        btn.classList.add('bg-cyan-neon/10', 'text-cyan-neon');
+                        btn.classList.remove('text-text-muted');
+                        const tab = btn.dataset.tab;
+                        document.querySelectorAll('.online-tab-content').forEach(el => el.classList.add(
+                            'hidden'));
+                        const target = $(`#online-tab-${tab}`);
+                        if (target) target.classList.remove('hidden');
+                    });
+                });
+
+                // Create room
+                $('#btn-online-create').addEventListener('click', async () => {
+                    const name = $('#online-room-name').value.trim() || 'غرفة جديدة';
+                    const isPublic = $('#online-room-public').checked;
+                    const room = await createOnlineRoom(name, isPublic);
+                    if (room) {
+                        localStorage.setItem('barra_room_id', room.id);
+                        localStorage.setItem('barra_player_name', OS.playerName);
+                    }
+                });
+
+                // Join room
+                $('#btn-online-join').addEventListener('click', async () => {
+                    const code = $('#online-join-code').value.trim();
+                    if (!code || code.length !== 6) { toast('أدخل كوداً مكوناً من 6 أرقام', 1500); return; }
+                    await joinOnlineRoom(code);
+                });
+
+                $('#online-join-code').addEventListener('keydown', e => {
+                    if (e.key === 'Enter') { e.preventDefault();
+                        $('#btn-online-join').click(); }
+                });
+
+                // Ready toggle
+                $('#btn-online-ready').addEventListener('click', toggleReady);
+
+                // Host start
+                $('#btn-online-host-start').addEventListener('click', hostStartGame);
+
+                // Room leave
+                $('#btn-online-room-leave').addEventListener('click', () => {
+                    if (confirm('هل تريد مغادرة الغرفة؟')) {
+                        leaveOnlineRoom();
+                        localStorage.removeItem('barra_room_id');
+                    }
+                });
+
+                // Generate room code display on create tab
+                const codeDisplay = $('#online-room-code-display');
+                setInterval(() => {
+                    if (!OS.roomId) {
+                        const dummy = generateRoomCode();
+                        codeDisplay.textContent = dummy.slice(0, 3) + ' ' + dummy.slice(3);
+                    }
+                }, 3000);
+                const initialDummy = generateRoomCode();
+                codeDisplay.textContent = initialDummy.slice(0, 3) + ' ' + initialDummy.slice(3);
+            }
+
+            // ═══════════════════════════════════════
+            // INSTRUCTIONS (shared)
+            // ═══════════════════════════════════════
+            function showInstructions() {
+                const existing = $('#overlay-container');
+                if (!existing) {
+                    const ov = document.createElement('div');
+                    ov.id = 'overlay-container';
+                    ov.className =
+                        'fixed inset-0 bg-black/70 z-[9000] flex items-center justify-center backdrop-blur-sm p-4';
+                    document.body.appendChild(ov);
+                }
+                const c = $('#overlay-container');
+                c.innerHTML = `
+            <div class="glass-panel glass-panel-glow rounded-2xl p-6 flex flex-col gap-4 text-center max-w-[440px] w-full animate-screen-in" role="dialog" aria-label="كيف ألعب">
+              <h2 class="font-extrabold text-xl">📖 كيف تلعب؟</h2>
+              <div class="flex flex-col gap-2 text-sm text-text-muted text-start leading-relaxed">
+                <p>👥 <b>١. أضف اللاعبين</b> (٣ على الأقل) واختر الفئة ووضع اللعبة.</p>
+                <p>📱 <b>٢. مرر الهاتف:</b> كل لاعب يضغط ليكشف دوره سرّاً.</p>
+                <p>🎤 <b>٣. مرحلة الأسئلة:</b> ٦ أو ٧ جولات، كل جولة يسأل لاعب زميله سؤالاً واحداً.</p>
+                <p>🗳️ <b>٤. التصويت السري:</b> كل لاعب يصوّت بسرية على من يشتبه به.</p>
+                <p>🔮 <b>٥. كشف الحقيقة تلقائياً:</b> شاشة تشويقية تكشف النتيجة بدون ضغط أزرار.</p>
+                <p>🏆 <b>٦. النقاط التراكمية:</b> تكسبون نقاطاً وتستمر عبر الجولات.</p>
+                <p>🌐 <b>٧. اللعب أونلاين:</b> كل لاعب على جهازه، أسئلة مكتوبة وتصويت سري فوري.</p>
+              </div>
+              <button id="btn-inst-close" class="btn-press min-h-[54px] bg-cyan-neon text-bg-root font-bold text-lg rounded-3xl w-full border border-cyan-neon shadow-lg shadow-cyan-neon/20 transition-all">فهمت! 🎉</button>
+            </div>`;
+                $('#btn-inst-close').addEventListener('click', () => { c.innerHTML = '';
+                    c.remove();
+                    S.tutorialShown = true;
+                    hapticLight(); });
+            }
+
+            // ═══════════════════════════════════════
+            // LOCAL EVENT BINDINGS (preserved)
+            // ═══════════════════════════════════════
+            function bindLocalEvents() {
+                $('#btn-landing-play').addEventListener('click', () => { hapticLight();
+                    showScreen('modepicker'); });
+                $('#btn-landing-how').addEventListener('click', () => { hapticLight();
+                    showInstructions(); });
+                $('#btn-setup-back').addEventListener('click', () => { hapticLight();
+                    showScreen('modepicker'); });
+                $('#btn-add-player').addEventListener('click', () => {
+                    const inp = $('#input-player-name');
+                    const nm = inp.value.trim();
+                    if (!nm) { toast('اكتب اسماً!', 1500); return; }
+                    if (S.players.some(p => p.name === nm)) { toast('الاسم موجود!', 1500); return; }
+                    if (S.players.length >= CFG.MAX_PLAYERS) { toast(`الحد الأقصى ${CFG.MAX_PLAYERS}`, 1500);
+                        return; }
+                    S.players.push({ name: nm, totalScore: 0 });
+                    inp.value = '';
+                    inp.focus();
+                    renderSetup();
+                    hapticLight();
+                });
+                $('#input-player-name').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault();
+                        $('#btn-add-player').click(); } });
+                $('#btn-setup-start').addEventListener('click', () => {
+                    if (S.players.length < CFG.MIN_PLAYERS) { toast(`تحتاج ${CFG.MIN_PLAYERS} لاعبين`, 2000);
+                        return; }
+                    if (!S.selectedCategory) { toast('اختر فئة!', 1500); return; }
+                    hapticSuccess();
+                    startNewRound();
+                });
+                $('#btn-secret-next').addEventListener('click', () => { hapticLight();
+                    advanceSecret(); });
+                $('#btn-q-next').addEventListener('click', () => { hapticLight();
+                    renderQRound(); });
+                $('#btn-q-to-vote').addEventListener('click', () => { hapticSuccess();
+                    setupVoting(); });
+                $('#btn-voting-done').addEventListener('click', () => { hapticSuccess();
+                    startSuspenseSequence(); });
+                $('#btn-new-round').addEventListener('click', () => { showNewRoundScreen(); });
+                $('#btn-end-game').addEventListener('click', () => { hapticLight();
+                    resetToLanding(); });
+            }
+
+            // ═══════════════════════════════════════
+            // INIT
+            // ═══════════════════════════════════════
+            function init() {
+                S.selectedCategory = Object.keys(WORD_CLUSTERS)[0];
+                S.selectedMode = 'traditional';
+                S.rngSeed = Date.now();
+                spawnBg();
+                renderSetup();
+                showScreen('landing');
+                if (window.lucide) lucide.createIcons();
+
+                // Bind local events
+                bindLocalEvents();
+                // Bind online events
+                bindOnlineEvents();
+
+                console.log('🔮 برا السالفة v4.0 — Online Multiplayer with Supabase Realtime');
+                console.log('🟢 Local pass-and-play mode preserved');
+                console.log('🟢 Create/Join rooms · Live player list · Ready status');
+                console.log('🟢 Distributed role reveal · Interactive Q&A · Live voting');
+                console.log('⚠️ Remember to replace SUPABASE_URL and SUPABASE_ANON_KEY with your own!');
+            }
+
+            // ─── Auto-init when DOM ready ───
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init);
+            } else {
+                init();
+            }
+
+            // ─── Expose for debugging ───
+            window.__barra = { S, OS, WORD_CLUSTERS, CFG, initSupabase, createOnlineRoom, joinOnlineRoom };
+        })();
+    </script>
+</body>
+</html>
