@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover, maximum-scale=1.0" />
+    <title>برا السالفة</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com">
+    </script>
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest">
+    </script>
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+    </script>
+
+    <link rel="icon" href="https://7sn-17.github.io/bra-alsalfh/logo.png" type="image/png" />
+    <link rel="apple-touch-icon" href="https://7sn-17.github.io/bra-alsalfh/logo.png" />
+
+    <meta property="og:title" content="برا السالفة - لعبة جماعية ممتعة" />
+    <meta property="og:description" content="اكتشفوا من برا السالفة فيكم!" />
+    <meta property="og:image" content="https://7sn-17.github.io/bra-alsalfh/logo.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="برا السالفة - لعبة جماعية ممتعة" />
+    <meta name="twitter:description" content="اكتشفوا من برا السالفة فيكم!" />
+    <meta name="twitter:image" content="https://7sn-17.github.io/bra-alsalfh/logo.png" />
+
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+    <!-- ====== الخلفية والكونفيتي ====== -->
+    <div id="bg-particles"></div>
+    <canvas id="confetti-canvas" class="hidden"></canvas>
+
+    <!-- ====== حاوية التوست ====== -->
+    <div id="toast-container"></div>
+
+    <!-- ====== مودال التنبيهات الحرجة ====== -->
+    <div id="custom-alert-modal" class="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl modal-animate text-center relative overflow-hidden">
+            <div id="modal-glow-bg" class="absolute -top-12 left-1/2 -translate-x-1/2 w-32 h-32 bg-cyan-500/20 rounded-full blur-2xl pointer-events-none"></div>
+            <div id="modal-icon-wrapper" class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-2xl">
+                <i id="modal-icon" class="fa-solid fa-circle-check"></i>
+            </div>
+            <h3 id="modal-title" class="text-lg font-black text-white mb-2">عنوان التنبيه</h3>
+            <p id="modal-message" class="text-xs text-slate-400 leading-relaxed mb-6">تفاصيل التنبيه...</p>
+            <div id="modal-actions" class="flex gap-3">
+                <button onclick="closeCustomAlert()" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold text-xs rounded-xl border border-slate-700 transition active:scale-95">إلغاء</button>
+                <button id="modal-confirm-btn" onclick="confirmModalAction()" class="flex-1 py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-xs rounded-xl border border-cyan-500 transition active:scale-95">تأكيد</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== نظام المصادقة ====== -->
+    <div id="auth-overlay" class="auth-overlay">
+        <div class="auth-bg-glow-1"></div>
+        <div class="auth-bg-glow-2"></div>
+
+        <div class="auth-card">
+            <button class="auth-close-btn" id="auth-close-btn" title="إغلاق">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="auth-container">
+                <div class="text-center mb-8">
+                    <div class="relative inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 mb-3 shadow-inner overflow-hidden">
+                        <img src="https://7sn-17.github.io/bra-alsalfh/logo.png" alt="برا السالفة" class="w-full h-full object-cover" onerror="this.src=''; this.className='hidden'; document.getElementById('auth-fallback-icon').classList.remove('hidden');" />
+                        <i id="auth-fallback-icon" class="fa-solid fa-gamepad text-cyan-400 text-2xl hidden"></i>
+                    </div>
+                    <h2 class="text-2xl font-black text-white tracking-wide" id="auth-title">تسجيل الدخول</h2>
+                    <p class="text-slate-400 text-sm mt-1 font-medium" id="auth-subtitle">أهلاً بك مجدداً! ادخل حسابك للمتابعة واللعب أونلاين</p>
+                </div>
+
+                <div id="auth-alert" class="auth-alert-hidden"></div>
+
+                <div id="login-view" class="auth-view active-view">
+                    <form id="form-login" onsubmit="handleLogin(event)">
+                        <div class="input-group">
+                            <input type="text" id="login-username" class="custom-input-auth" placeholder="اسم المستخدم" required autocomplete="username" />
+                            <i class="fa-solid fa-user input-icon"></i>
+                        </div>
+
+                        <div class="input-group">
+                            <input type="password" id="login-password" class="custom-input-auth" placeholder="كلمة المرور" required autocomplete="current-password" />
+                            <i class="fa-solid fa-lock input-icon"></i>
+                            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility('login-password', this)"></i>
+                        </div>
+
+                        <button type="submit" id="btn-submit-login" class="btn-gradient-cyan flex items-center justify-center gap-2 mt-6">
+                            <i class="fa-solid fa-right-to-bracket"></i>
+                            <span>تسجيل الدخول</span>
+                        </button>
+                    </form>
+
+                    <div class="text-center mt-6 pt-5 border-t border-slate-800/80">
+                        <p class="text-sm text-slate-400">
+                            ليس لديك حساب؟
+                            <button type="button" onclick="switchAuthMode('register')" class="text-cyan-400 font-extrabold hover:underline hover:text-cyan-300 transition mr-1">
+                                سجل الآن
+                            </button>
+                        </p>
+                    </div>
+                </div>
+
+                <div id="register-view" class="auth-view hidden-view">
+                    <form id="form-register" onsubmit="handleRegister(event)">
+                        <div class="input-group">
+                            <input type="text" id="register-username" class="custom-input-auth" placeholder="اختر اسم المستخدم" required minlength="3" autocomplete="username" />
+                            <i class="fa-solid fa-user-plus input-icon"></i>
+                        </div>
+
+                        <div class="input-group">
+                            <input type="password" id="register-password" class="custom-input-auth" placeholder="كلمة المرور (6 خانات على الأقل)" required minlength="6" autocomplete="new-password" />
+                            <i class="fa-solid fa-key input-icon"></i>
+                            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility('register-password', this)"></i>
+                        </div>
+
+                        <div class="input-group">
+                            <input type="password" id="register-confirm-password" class="custom-input-auth" placeholder="تأكيد كلمة المرور" required minlength="6" autocomplete="new-password" />
+                            <i class="fa-solid fa-shield-halved input-icon"></i>
+                            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility('register-confirm-password', this)"></i>
+                        </div>
+
+                        <button type="submit" id="btn-submit-register" class="btn-gradient-purple flex items-center justify-center gap-2 mt-6">
+                            <i class="fa-solid fa-user-check"></i>
+                            <span>إنشاء حساب جديد</span>
+                        </button>
+                    </form>
+
+                    <div class="text-center mt-6 pt-5 border-t border-slate-800/80">
+                        <p class="text-sm text-slate-400">
+                            لديك حساب بالفعل؟
+                            <button type="button" onclick="switchAuthMode('login')" class="text-purple-400 font-extrabold hover:underline hover:text-purple-300 transition mr-1">
+                                تسجيل الدخول
+                            </button>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== استعادة الحالة ====== -->
+    <div id="reconnect-overlay">
+        <div class="spinner"></div>
+        <p>⏳ جاري استعادة الجلسة...</p>
+    </div>
+
+    <!-- ====== الشريط العلوي العالمي ====== -->
+    <header id="global-header" class="global-header hidden-state pro-glass-header px-6 md:px-12 flex items-center justify-between shadow-2xl">
+        <div class="flex items-center">
+            <h1 class="font-black text-2xl md:text-3xl text-white tracking-wider title-glow select-none">
+                برا السالفة
+            </h1>
+        </div>
+        <div class="flex items-center gap-2.5">
+            <div class="relative group">
+                <button id="btn-dev-toggle" class="control-pill w-11 h-11 rounded-2xl flex items-center justify-center relative active:scale-90">
+                    <i class="fa-solid fa-code text-cyan-400 text-sm group-hover:rotate-12 transition-transform duration-300"></i>
+                </button>
+                <div class="absolute -bottom-10 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none bg-slate-900/90 text-cyan-300 text-[11px] font-bold px-3 py-1 rounded-lg border border-cyan-500/30 whitespace-nowrap shadow-xl">
+                    فريق التطوير
+                </div>
+            </div>
+            <div class="relative group">
+                <button id="btn-home" class="control-pill w-11 h-11 rounded-2xl flex items-center justify-center text-slate-300 hover:text-cyan-400 active:scale-90">
+                    <i class="fa-solid fa-house text-sm"></i>
+                </button>
+                <div class="absolute -bottom-10 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none bg-slate-900/90 text-slate-300 text-[11px] font-bold px-3 py-1 rounded-lg border border-white/10 whitespace-nowrap shadow-xl">
+                    الرئيسية
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ====== مودال المطورين ====== -->
+    <div id="dev-modal">
+        <div class="dev-modal-content">
+            <div class="text-center mb-6">
+                <div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xl">
+                    <i class="fa-solid fa-terminal"></i>
+                </div>
+                <h3 class="text-xl font-black text-white">فريق التطوير</h3>
+                <p class="text-xs text-slate-400 mt-1">العقول المبدعة خلف اللعبة</p>
+            </div>
+
+            <div class="dev-developer">
+                <div class="dev-info">
+                    <div class="dev-avatar cyan"><i class="fa-solid fa-laptop-code"></i></div>
+                    <div>
+                        <div class="dev-name">حسن الجرك</div>
+                        <div class="dev-role">مطور الوضع المحلي</div>
+                    </div>
+                </div>
+                <div class="dev-social">
+                    <a href="https://wa.me/84347196582" target="_blank" class="whatsapp"><i class="fa-brands fa-whatsapp"></i></a>
+                    <a href="https://www.instagram.com/hassan_aljerk?igsh=MXQ3c3A1OXdiOHpheA==" target="_blank" class="instagram"><i class="fa-brands fa-instagram"></i></a>
+                </div>
+            </div>
+
+            <div class="dev-developer">
+                <div class="dev-info">
+                    <div class="dev-avatar purple"><i class="fa-solid fa-globe"></i></div>
+                    <div>
+                        <div class="dev-name">حسن المحمد</div>
+                        <div class="dev-role">مطور وضع الأونلاين</div>
+                    </div>
+                </div>
+                <div class="dev-social">
+                    <a href="https://wa.me/17862927607" target="_blank" class="whatsapp"><i class="fa-brands fa-whatsapp"></i></a>
+                    <a href="https://www.instagram.com/7sn__08?igsh=MXV3YW51cHd1dXVseA==" target="_blank" class="instagram"><i class="fa-brands fa-instagram"></i></a>
+                </div>
+            </div>
+
+            <button id="btn-dev-close" class="dev-close-btn">إغلاق</button>
+        </div>
+    </div>
+
+    <!-- ====== التطبيق الرئيسي ====== -->
+    <div id="app" class="relative z-10 w-full min-h-screen min-h-dvh flex flex-col">
+
+        <!-- ===== شاشة الترحيب ===== -->
+        <div id="screen-landing" class="screen active flex-col items-center justify-center flex-1 text-center py-12">
+            <div id="profile-wrapper" class="flex items-center gap-2">
+                <span id="profile-name-display" class="hidden md:inline-block">زائر</span>
+                <div id="profile-avatar" title="الملف الشخصي">
+                    <span id="profile-avatar-letter">👤</span>
+                    <span class="online-dot offline" id="profile-online-dot"></span>
+                </div>
+            </div>
+
+            <div class="relative mb-4">
+                <span class="text-8xl" style="filter:drop-shadow(0 0 60px rgba(0,224,255,0.2));">🔮</span>
+            </div>
+            <h1 class="font-black text-5xl leading-tight tracking-tight text-white text-shadow-glow">برا السالفة</h1>
+            <p class="text-[#8892a6] text-lg max-w-[300px] mt-2">اللعبة الجماعية المثيرة — اكتشفوا من برا السالفة قبل ما يكتشفكم!</p>
+            <div class="flex flex-col gap-4 w-full max-w-[300px] mt-8">
+                <button id="btn-landing-play" class="btn-primary w-full flex items-center justify-center gap-3 text-lg">
+                    <i data-lucide="play-circle" class="w-5 h-5"></i> بدء اللعب
+                </button>
+                <button id="btn-landing-how" class="btn-secondary w-full flex items-center justify-center gap-3 text-lg">
+                    <i data-lucide="help-circle" class="w-5 h-5"></i> كيف ألعب؟
+                </button>
+            </div>
+            <p class="text-[#525b6e] text-xs mt-6">تحتاج ٣ لاعبين على الأقل • وضعان للعب</p>
+        </div>
+
+        <!-- ===== شاشة التعليمات ===== -->
+        <div id="screen-instructions" class="screen flex-col flex-1 py-4 screen-sticky-padding">
+            <div class="glass-panel rounded-3xl p-6 flex flex-col gap-5 max-w-4xl mx-auto w-full h-full overflow-y-auto">
+                <div class="flex items-center gap-3 mb-2 shrink-0">
+                    <button id="btn-inst-back" class="w-10 h-10 rounded-full bg-transparent border border-white/15 flex items-center justify-center text-white transition-all hover:border-cyan-400 hover:bg-white/5 active:scale-95">
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                    <h2 class="font-extrabold text-2xl text-white">📖 كيف تلعب "برا السالفة"؟</h2>
+                </div>
+                <div class="flex-1 overflow-y-auto space-y-4 pb-2">
+                    <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
+                        <h3 class="font-extrabold text-cyan-400 text-lg flex items-center gap-2"><span class="text-2xl">👥</span> ١. أضف اللاعبين</h3>
+                        <p class="text-slate-300 text-sm mt-1">(٣ على الأقل) واختر الفئة ووضع اللعبة المناسب</p>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
+                        <h3 class="font-extrabold text-cyan-400 text-lg flex items-center gap-2"><span class="text-2xl">📱</span> ٢. مرر الهاتف</h3>
+                        <p class="text-slate-300 text-sm mt-1">كل لاعب يضغط ليكشف دوره سراً ولا يراه الآخرون</p>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
+                        <h3 class="font-extrabold text-cyan-400 text-lg flex items-center gap-2"><span class="text-2xl">🎤</span> ٣. مرحلة الأسئلة</h3>
+                        <p class="text-slate-300 text-sm mt-1">عدد الجولات حسب عدد اللاعبين، كل جولة سائل ومجيب مختلفين</p>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
+                        <h3 class="font-extrabold text-cyan-400 text-lg flex items-center gap-2"><span class="text-2xl">🗳️</span> ٤. التصويت السري</h3>
+                        <p class="text-slate-300 text-sm mt-1">كل لاعب يصوّت بسرية على من يشتبه به</p>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
+                        <h3 class="font-extrabold text-cyan-400 text-lg flex items-center gap-2"><span class="text-2xl">🔮</span> ٥. كشف الحقيقة</h3>
+                        <p class="text-slate-300 text-sm mt-1">شاشة تشويقية تكشف النتيجة تلقائياً</p>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
+                        <h3 class="font-extrabold text-cyan-400 text-lg flex items-center gap-2"><span class="text-2xl">🏆</span> ٦. النقاط التراكمية</h3>
+                        <p class="text-slate-300 text-sm mt-1">تكسبون نقاطاً وتستمر المتعة عبر الجولات</p>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/30">
+                        <h3 class="font-extrabold text-purple-400 text-lg flex items-center gap-2"><span class="text-2xl">🌐</span> ٧. اللعب أونلاين</h3>
+                        <p class="text-slate-300 text-sm mt-1">كل لاعب على جهازه، أسئلة مكتوبة وتصويت سري فوري</p>
+                    </div>
+                </div>
+                <button id="btn-inst-back-bottom" class="btn-primary w-full text-lg py-4 shrink-0 flex items-center justify-center gap-2">
+                    <span>فهمت! 🎉</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ===== مودال اختيار وضع اللعب ===== -->
+        <div id="mode-select-modal" class="fixed inset-0 z-[99998] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md hidden">
+            <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl modal-animate text-center relative overflow-hidden">
+                <div class="absolute -top-12 left-1/2 -translate-x-1/2 w-32 h-32 bg-emerald-500/20 rounded-full blur-2xl pointer-events-none"></div>
+                <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-3xl">
+                    <i class="fa-solid fa-gamepad"></i>
+                </div>
+                <h3 class="text-xl font-black text-white mb-1">اختر طريقة اللعب</h3>
+                <p class="text-xs text-slate-400 leading-relaxed mb-6">اختر بين اللعب المحلي أو عبر الإنترنت مع الأصدقاء</p>
+                <div class="flex flex-col gap-3">
+                    <button id="modal-btn-local" class="w-full py-4 bg-white/5 border-2 border-emerald-500/30 rounded-2xl flex items-center gap-4 px-5 hover:border-emerald-400 hover:bg-emerald-500/10 transition-all duration-300 text-start group hover:-translate-y-0.5 hover:shadow-lg hover:shadow-emerald-500/10">
+                        <span class="text-3xl text-emerald-400 w-10 text-center"><i class="fa-solid fa-mobile-screen-button"></i></span>
+                        <div>
+                            <span class="font-extrabold text-lg block text-white">لعب محلي</span>
+                            <span class="text-slate-400 text-xs">على جهاز واحد، مرر الهاتف بين اللاعبين</span>
+                        </div>
+                        <span class="mr-auto text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-xl">←</span>
+                    </button>
+                    <button id="modal-btn-online" class="w-full py-4 bg-white/5 border-2 border-purple-500/30 rounded-2xl flex items-center gap-4 px-5 hover:border-purple-400 hover:bg-purple-500/10 transition-all duration-300 text-start group hover:-translate-y-0.5 hover:shadow-lg hover:shadow-purple-500/10">
+                        <span class="text-3xl text-purple-400 w-10 text-center"><i class="fa-solid fa-globe"></i></span>
+                        <div>
+                            <span class="font-extrabold text-lg block text-white">لعب أونلاين</span>
+                            <span class="text-slate-400 text-xs">كل لاعب على جهازه، عبر الإنترنت</span>
+                        </div>
+                        <span class="mr-auto text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-xl">←</span>
+                    </button>
+                    <button id="modal-btn-cancel" class="w-full mt-2 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm rounded-xl border border-slate-700 transition duration-300 active:scale-95 hover:border-slate-500">
+                        إلغاء
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== شاشة الإعداد المحلي ===== -->
+        <div id="screen-setup" class="screen flex-col flex-1 py-4">
+            <div class="glass-panel rounded-3xl p-5 flex flex-col gap-5 flex-1 max-w-4xl mx-auto w-full">
+                <div class="flex items-center gap-3">
+                    <button id="btn-setup-back" class="w-10 h-10 rounded-full bg-transparent border border-white/15 flex items-center justify-center text-white transition-all hover:border-cyan-400 active:bg-white/8 shrink-0">
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                    <h2 class="flex-1 font-extrabold text-xl text-white">إعداد اللعبة المحلية</h2>
+                    <span id="setup-count-badge" class="bg-cyan-400/15 text-cyan-400 font-bold text-xs px-3 py-1 rounded-full">0 لاعبين</span>
+                </div>
+                <div class="flex gap-3">
+                    <input id="input-player-name" class="input-dark flex-1" type="text" placeholder="اكتب اسم اللاعب..." maxlength="16" autocomplete="off" />
+                    <button id="btn-add-player" class="btn-primary shrink-0 flex items-center gap-2 text-sm">
+                        <i data-lucide="plus" class="w-4 h-4"></i> أضف
+                    </button>
+                </div>
+                <div id="players-chips" class="flex flex-wrap gap-3 min-h-[36px]"></div>
+                <p id="setup-hint" class="text-[#8892a6] text-xs">الحد الأدنى ٣ لاعبين</p>
+                <div>
+                    <p class="font-bold text-sm text-white mb-3">اختر الفئة:</p>
+                    <div id="cat-grid" class="grid-auto-fill"></div>
+                </div>
+                <div>
+                    <p class="font-bold text-sm text-white mb-3">اختر وضع اللعبة:</p>
+                    <div class="flex flex-col gap-3" id="mode-selector">
+                        <div class="mode-card" data-mode="traditional" tabindex="0" role="radio">
+                            <span class="text-2xl"><i class="fa-solid fa-masks-theater text-cyan-400"></i></span>
+                            <span class="font-extrabold">الوضع التقليدي</span>
+                            <span class="text-[#8892a6] text-xs">لاعب واحد لا يعرف الكلمة السرية</span>
+                        </div>
+                        <div class="mode-card" data-mode="mindbending" tabindex="0" role="radio">
+                            <span class="text-2xl"><i class="fa-solid fa-brain text-purple-400"></i></span>
+                            <span class="font-extrabold">الوضع الذهني</span>
+                            <span class="text-[#8892a6] text-xs">لاعب واحد يحصل على كلمة مختلفة</span>
+                        </div>
+                    </div>
+                </div>
+                <button id="btn-setup-start" class="btn-primary w-full text-lg flex items-center justify-center gap-2 mt-2" disabled>
+                    <i class="fa-solid fa-play"></i> ابدأ اللعبة
+                </button>
+            </div>
+        </div>
+
+        <!-- ===== شاشة اللوبي الأونلاين ===== -->
+        <div id="screen-online-lobby" class="screen flex-col flex-1 pt-16 pb-4 screen-sticky-padding">
+            <div class="relative z-10 max-w-4xl mx-auto w-full px-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+                    <!-- انضمام برمز -->
+                    <div class="bg-slate-900/60 backdrop-blur-xl border border-cyan-500/30 rounded-3xl p-5 flex flex-col justify-between glow-cyan hover:border-cyan-400/60 transition-all icon-bounce">
+                        <div>
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="p-3 bg-cyan-500/10 rounded-2xl border border-cyan-500/30 text-cyan-400"><i data-lucide="key-round" class="w-6 h-6"></i></div>
+                                <div><h3 class="font-black text-slate-100 text-base">رمز الغرفة</h3><p class="text-[11px] text-slate-400">انضم بدعوة خاصة</p></div>
+                            </div>
+                            <div class="relative mb-3">
+                                <input id="online-join-code" type="text" placeholder="482910" maxlength="6" class="w-full text-center tracking-widest text-xl font-mono uppercase bg-slate-950/90 border border-slate-800 rounded-2xl px-3 py-3 text-cyan-300 focus:outline-none focus:border-cyan-400 transition shadow-inner" />
+                                <i class="fa-solid fa-hashtag absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 text-xs"></i>
+                            </div>
+                        </div>
+                        <button id="btn-online-join" class="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black rounded-2xl shadow-lg shadow-cyan-500/25 active:scale-95 transition-all text-xs flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-right-to-bracket text-sm"></i>
+                            <span>انضمام الآن</span>
+                        </button>
+                    </div>
+
+                    <!-- إنشاء غرفة -->
+                    <div class="bg-slate-900/60 backdrop-blur-xl border border-purple-500/30 rounded-3xl p-5 flex flex-col justify-between glow-purple hover:border-purple-400/60 transition-all icon-bounce">
+                        <div>
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="p-3 bg-purple-500/10 rounded-2xl border border-purple-500/30 text-purple-400"><i data-lucide="plus-circle" class="w-6 h-6"></i></div>
+                                <div><h3 class="font-black text-slate-100 text-base">إنشاء غرفة</h3><p class="text-[11px] text-slate-400">استضف مباراتك الخاصة</p></div>
+                            </div>
+                            <div class="space-y-3 mb-4">
+                                <div>
+                                    <label class="text-[11px] text-slate-400 font-extrabold flex items-center gap-1.5 mb-1">
+                                        <i data-lucide="signature" class="w-3.5 h-3.5 text-purple-400"></i>
+                                        <span>اسم الغرفة:</span>
+                                    </label>
+                                    <input id="online-room-name" type="text" placeholder="تحدي الأساطير" maxlength="25" class="w-full bg-slate-950/90 border border-slate-800 rounded-xl px-3 py-2 text-xs text-purple-200 placeholder:text-slate-600 focus:outline-none focus:border-purple-400 transition shadow-inner" />
+                                </div>
+                                <div>
+                                    <label class="text-[11px] text-slate-400 font-extrabold flex items-center gap-1.5 mb-1">
+                                        <i data-lucide="shield-alert" class="w-3.5 h-3.5 text-purple-400"></i>
+                                        <span>نوع الغرفة:</span>
+                                    </label>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <button type="button" onclick="window.selectVisibility('public')" id="vis-public" class="vis-btn py-1.5 px-2 text-xs font-bold rounded-xl border transition-all flex items-center justify-center gap-1.5 bg-purple-500/20 text-purple-300 border-purple-500/50 shadow-sm shadow-purple-500/20">
+                                            <i class="fa-solid fa-earth-americas text-xs"></i><span>عامة</span>
+                                        </button>
+                                        <button type="button" onclick="window.selectVisibility('private')" id="vis-private" class="vis-btn py-1.5 px-2 text-xs font-bold rounded-xl border transition-all flex items-center justify-center gap-1.5 bg-slate-950/80 text-slate-400 border-slate-800 hover:border-slate-700">
+                                            <i class="fa-solid fa-lock text-xs"></i><span>خاصة</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="text-[11px] text-slate-400 font-extrabold flex items-center gap-1.5 mb-1">
+                                        <i data-lucide="users" class="w-3.5 h-3.5 text-purple-400"></i>
+                                        <span>عدد اللاعبين:</span>
+                                    </label>
+                                    <div class="grid grid-cols-4 gap-1.5">
+                                        <button type="button" onclick="window.selectPlayers(4)" id="ply-4" class="ply-btn py-1.5 text-xs font-extrabold rounded-xl border transition-all bg-slate-950/80 text-slate-400 border-slate-800 hover:border-slate-700">4</button>
+                                        <button type="button" onclick="window.selectPlayers(6)" id="ply-6" class="ply-btn py-1.5 text-xs font-extrabold rounded-xl border transition-all bg-purple-500/20 text-purple-300 border-purple-500/50 shadow-sm shadow-purple-500/20">6</button>
+                                        <button type="button" onclick="window.selectPlayers(8)" id="ply-8" class="ply-btn py-1.5 text-xs font-extrabold rounded-xl border transition-all bg-slate-950/80 text-slate-400 border-slate-800 hover:border-slate-700">8</button>
+                                        <button type="button" onclick="window.selectPlayers(10)" id="ply-10" class="ply-btn py-1.5 text-xs font-extrabold rounded-xl border transition-all bg-slate-950/80 text-slate-400 border-slate-800 hover:border-slate-700">10</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="btn-online-create" class="w-full py-3 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-400 hover:to-indigo-400 text-white font-black rounded-2xl shadow-lg shadow-purple-500/25 active:scale-95 transition-all text-xs flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
+                            <span>إنشاء الغرفة الآن</span>
+                        </button>
+                    </div>
+
+                    <!-- دخول سريع -->
+                    <div class="bg-slate-900/60 backdrop-blur-xl border border-emerald-500/30 rounded-3xl p-5 flex flex-col justify-between glow-emerald hover:border-emerald-400/60 transition-all icon-bounce">
+                        <div>
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/30 text-emerald-400"><i data-lucide="zap" class="w-6 h-6"></i></div>
+                                <div><h3 class="font-black text-slate-100 text-base">دخول سريع</h3><p class="text-[11px] text-slate-400">مطابقة فورية تلقائية</p></div>
+                            </div>
+                            <p class="text-xs text-slate-400 leading-relaxed mb-4">يبحث النظام تلقائياً عن أفضل غرفة بها متسع ويدخلك مباشرة في اللعبة.</p>
+                        </div>
+                        <button id="btn-online-quick" class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-2xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all text-xs flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-bolt text-sm"></i>
+                            <span>دخول مباشر</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- قائمة الغرف العامة -->
+                <div class="bg-slate-900/40 backdrop-blur-xl border border-slate-800 rounded-3xl p-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-xs font-extrabold text-slate-200 flex items-center gap-2">
+                            <i data-lucide="radio" class="w-4 h-4 text-emerald-400 animate-pulse"></i>
+                            <span>الغرف العامة النشطة</span>
+                        </span>
+                        <button id="btn-refresh-rooms" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-xl border border-slate-700 transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-rotate text-[10px] text-cyan-400"></i><span>تحديث</span>
+                        </button>
+                    </div>
+                    <div id="online-public-list" class="space-y-2.5">
+                        <div class="text-slate-500 text-sm text-center py-8">⏳ جارٍ تحميل الغرف...</div>
+                    </div>
+                </div>
+
+                <div class="mt-4 text-center">
+                    <button id="btn-delete-all-rooms" class="text-[10px] text-slate-600 hover:text-slate-400 transition opacity-30 hover:opacity-70" ondblclick="window.confirmDeleteAllRooms()">
+                        🗑️ حذف جميع الغرف (اضغط مرتين)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== شاشة الغرفة الأونلاين ===== -->
+        <div id="screen-online-room" class="screen flex-col flex-1 py-4">
+            <div class="max-w-4xl mx-auto w-full online-room-modern px-4">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+                    <button id="btn-online-room-leave" class="px-4 py-2 bg-slate-800/80 hover:bg-slate-700 rounded-xl border border-slate-700 text-slate-300 text-sm font-bold flex items-center gap-2 transition active:scale-95">
+                        <i class="fa-solid fa-right-from-bracket text-rose-400"></i><span>مغادرة</span>
+                    </button>
+                    <div class="text-center flex-1">
+                        <h2 id="online-room-title" class="font-extrabold text-xl text-white">🏠 غرفة: —</h2>
+                        <span id="online-room-code-badge" class="font-mono text-cyan-400 text-sm bg-slate-800/50 px-3 py-0.5 rounded-full">—— ——</span>
+                        <i id="btn-copy-code" class="fa-regular fa-copy text-slate-500 hover:text-cyan-400 cursor-pointer transition-all text-sm hover:scale-110 ml-2" title="نسخ الكود"></i>
+                    </div>
+                    <span id="online-room-player-count" class="bg-slate-800/50 px-4 py-1.5 rounded-full text-sm text-white border border-slate-700">0 لاعب</span>
+                </div>
+
+                <div class="mb-6">
+                    <p class="text-sm font-bold text-slate-300 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-users text-cyan-400"></i>
+                        <span>اللاعبون</span>
+                    </p>
+                    <div id="online-player-list" class="player-grid"></div>
+                </div>
+
+                <div id="online-host-controls" class="hidden mb-6 bg-cyan-500/5 border border-cyan-500/20 rounded-2xl p-5">
+                    <p class="text-sm font-bold text-cyan-400 flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-crown"></i> أنت المضيف
+                    </p>
+                    <div class="flex flex-wrap gap-4">
+                        <div class="flex-1 min-w-[140px]">
+                            <label class="text-xs text-slate-400 block mb-1">الفئة</label>
+                            <select id="online-host-category" class="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400"></select>
+                        </div>
+                        <div class="flex-1 min-w-[140px]">
+                            <label class="text-xs text-slate-400 block mb-1">الوضع</label>
+                            <select id="online-host-mode" class="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400">
+                                <option value="traditional">🎭 تقليدي</option>
+                                <option value="mindbending">🧠 ذهني</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button id="btn-online-host-start" class="btn-success w-full text-lg flex items-center justify-center gap-2 mt-4 disabled:opacity-30 disabled:grayscale disabled:pointer-events-none">
+                        <i class="fa-solid fa-circle-play"></i> بدء اللعبة
+                    </button>
+                    <p id="online-host-hint" class="text-slate-400 text-xs mt-2 text-center">يجب أن يكون عدد اللاعبين كافياً (٣ على الأقل)</p>
+                </div>
+
+                <div id="online-room-waiting" class="text-center text-slate-400 text-sm py-2">⏳ في انتظار وصول باقي اللاعبين...</div>
+            </div>
+        </div>
+
+        <!-- ===== شاشة الكشف الأونلاين (بتصميم 3D الجديد) ===== -->
+        <div id="screen-online-reveal" class="screen flex-col items-center flex-1 justify-center text-center py-4">
+            <div class="glass-panel rounded-3xl p-6 flex flex-col gap-5 items-center w-full max-w-[400px] mx-4">
+
+                <!-- هيدر الفئة والجاهزية -->
+                <div class="w-full glass-card rounded-2xl p-3 flex flex-col gap-2.5 border-r-4 border-r-cyan-400">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2.5 text-xs">
+                            <div class="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-400/20 flex items-center justify-center text-cyan-400">
+                                <i class="fa-solid fa-layer-group"></i>
+                            </div>
+                            <div>
+                                <span class="text-[10px] text-slate-400 font-semibold block">فئة الجولة</span>
+                                <span id="reveal-category-name" class="font-bold text-white">أطعمة</span>
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-end gap-1">
+                            <span id="reveal-ready-count" class="text-[11px] font-black text-cyan-400 bg-cyan-400/10 px-2.5 py-0.5 rounded-lg border border-cyan-400/20">
+                                0 / 0 جاهزون
+                            </span>
+                        </div>
+                    </div>
+                    <div class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden border border-white/5">
+                        <div id="reveal-progress-bar" class="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 rounded-full progress-fill" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- البطاقة التفاعلية ثلاثية الأبعاد -->
+                <div class="card-perspective w-full">
+                    <div id="reveal-flip-card" class="flip-card-inner">
+
+                        <!-- الوجه الأمامي -->
+                        <div class="flip-card-front">
+                            <div class="w-14 h-14 rounded-full bg-cyan-500/10 border border-cyan-400/30 flex items-center justify-center text-cyan-400 text-xl mb-3">
+                                <i class="fa-solid fa-lock"></i>
+                            </div>
+                            <h3 class="font-bold text-sm text-white">اضغط لكشف دورك السري</h3>
+                            <span class="mt-4 text-[11px] font-bold text-cyan-400 bg-cyan-400/10 px-3 py-1 rounded-full border border-cyan-400/20 flex items-center gap-1.5">
+                                <i class="fa-solid fa-hand-pointer"></i>
+                                <span>انقر هنا</span>
+                            </span>
+                        </div>
+
+                        <!-- الوجه الخلفي (يُملأ ديناميكياً) -->
+                        <div id="reveal-back-face" class="flip-card-back role-in">
+                            <!-- يُملأ عبر JavaScript -->
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- زر الجاهزية الموحد -->
+                <button id="btn-reveal-ready" class="btn-ready-reveal w-full py-3.5 rounded-2xl font-bold text-sm bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-400/20 active:scale-95 transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>جاهز وبدء الجولة</span>
+                </button>
+
+            </div>
+        </div>
+
+        <!-- ===== شاشة الأسئلة الجديدة (المطورة بالكامل) ===== -->
+        <div id="screen-online-qa" class="screen flex-col flex-1 py-2">
+            <div class="max-w-md mx-auto w-full px-4 space-y-4">
+
+                <!-- اللوحة الرئيسية للتصميم العصري المطور -->
+                <div class="glass-panel-modern rounded-3xl p-5 shadow-2xl space-y-5 relative overflow-hidden">
+                    <div class="absolute -top-10 -left-10 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+                    <!-- هيدر الشاشة: الجولة - دور الشخص بالمنتصف - زر الخروج -->
+                    <div class="flex items-center justify-between border-b border-slate-700/50 pb-4">
+                        <!-- الجولة -->
+                        <div class="flex-1 text-right">
+                            <span id="online-qa-round-display" class="text-[11px] font-extrabold px-3 py-1.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 whitespace-nowrap">
+                                الجولة 1 من 0
+                            </span>
+                        </div>
+
+                        <!-- شارة وضع الشخص (بالمنتصف) -->
+                        <div class="flex-1 flex justify-center">
+                            <div id="player-role-badge" class="px-3.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-extrabold text-xs flex items-center gap-1.5 shadow-sm">
+                                <i id="player-role-icon" class="fa-solid fa-microphone text-[11px]"></i>
+                                <span id="player-role-text">سائل</span>
+                            </div>
+                        </div>
+
+                        <!-- زر الخروج -->
+                        <div class="flex-1 text-left flex justify-end">
+                            <button id="btn-online-qa-leave" class="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl transition text-xs font-bold active:scale-95">
+                                <span>خروج</span>
+                                <i class="fa-solid fa-right-from-bracket"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- المواجهة بين السائل والمجيب -->
+                    <div id="online-qa-faceoff" class="bg-slate-950/50 p-3.5 rounded-2xl border border-slate-800/80 flex items-center justify-between gap-2">
+                        <!-- بطاقة السائل -->
+                        <div class="flex items-center gap-2.5 flex-1 min-w-0">
+                            <div class="relative flex-shrink-0">
+                                <div id="qa-asker-avatar" class="w-11 h-11 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 text-slate-950 font-black flex items-center justify-center text-base shadow-md">
+                                    ?
+                                </div>
+                                <span class="absolute -bottom-1 -right-1 w-5 h-5 bg-slate-900 border border-cyan-400 text-cyan-400 rounded-full text-[10px] flex items-center justify-center shadow">
+                                    <i class="fa-solid fa-microphone"></i>
+                                </span>
+                            </div>
+                            <div class="truncate">
+                                <span class="text-[9px] text-cyan-400 font-bold block">السائل</span>
+                                <h4 id="qa-asker-name" class="font-bold text-xs text-white truncate">—</h4>
+                            </div>
+                        </div>
+
+                        <!-- سهم الاتجاه للمواجهة -->
+                        <div class="flex flex-col items-center justify-center px-1">
+                            <div class="w-7 h-7 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center text-cyan-400 text-xs shadow-inner">
+                                <i class="fa-solid fa-arrow-left"></i>
+                            </div>
+                        </div>
+
+                        <!-- بطاقة المجيب -->
+                        <div class="flex items-center justify-end gap-2.5 flex-1 min-w-0 text-left">
+                            <div class="truncate">
+                                <span class="text-[9px] text-purple-400 font-bold block">المجيب</span>
+                                <h4 id="qa-respondent-name" class="font-bold text-xs text-white truncate">—</h4>
+                            </div>
+                            <div class="relative flex-shrink-0">
+                                <div id="qa-respondent-avatar" class="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-400 to-pink-600 text-white font-black flex items-center justify-center text-base shadow-md">
+                                    ?
+                                </div>
+                                <span class="absolute -bottom-1 -left-1 w-5 h-5 bg-slate-900 border border-purple-400 text-purple-400 rounded-full text-[10px] flex items-center justify-center shadow">
+                                    <i class="fa-solid fa-comment-dots"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 1. منظور السائل -->
+                    <div id="view-asker" class="role-view space-y-4 pt-1">
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold text-slate-300 block">سؤالك إلى <span id="qa-asker-target-label">المجيب</span>:</label>
+                            <textarea id="online-qa-question-input" rows="3" class="w-full bg-slate-900/80 border border-slate-700/80 rounded-2xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition resize-none" placeholder="اكتب سؤالك هنا..."></textarea>
+                        </div>
+
+                        <button id="btn-online-qa-send-q" class="w-full py-3.5 bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950 font-black rounded-2xl shadow-lg shadow-cyan-500/20 hover:opacity-95 active:scale-95 transition flex items-center justify-center gap-2 text-xs">
+                            <i class="fa-solid fa-paper-plane"></i>
+                            <span>إرسال السؤال</span>
+                        </button>
+
+                        <!-- بطاقة استقبال إجابة المجيب + زر الانتقال للجولة التالية -->
+                        <div id="qa-asker-response-box" class="glass-card p-3.5 rounded-2xl border-r-4 border-r-purple-400 bg-purple-950/10 space-y-3 hidden">
+                            <div class="space-y-1">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[10px] text-purple-400 font-bold flex items-center gap-1.5">
+                                        <i class="fa-solid fa-reply"></i>
+                                        <span>إجابة المجيب الواردة:</span>
+                                    </span>
+                                    <span class="text-[9px] text-slate-500">منذ لحظات</span>
+                                </div>
+                                <p id="qa-asker-response-text" class="text-xs text-slate-100 font-semibold">"..."</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. منظور المجيب -->
+                    <div id="view-respondent" class="role-view space-y-4 pt-1 hidden">
+                        <div class="glass-card p-3.5 rounded-2xl border-r-4 border-r-cyan-400 space-y-1">
+                            <span class="text-[10px] text-cyan-400 font-bold flex items-center gap-1 block">
+                                <i class="fa-solid fa-microphone text-[10px]"></i>
+                                <span id="qa-respondent-asker-label">السائل يسألك:</span>
+                            </span>
+                            <p id="online-qa-received-q" class="text-xs font-bold text-white">⏳ في انتظار السؤال...</p>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold text-slate-300 block">إجابتك:</label>
+                            <textarea id="online-qa-answer-input" rows="3" class="w-full bg-slate-900/80 border border-slate-700/80 rounded-2xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-400 transition resize-none" placeholder="اكتب إجابتك هنا..." disabled></textarea>
+                        </div>
+
+                        <button id="btn-online-qa-send-a" class="w-full py-3.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-black rounded-2xl shadow-lg shadow-purple-500/20 hover:opacity-95 active:scale-95 transition flex items-center justify-center gap-2 text-xs" disabled>
+                            <i class="fa-solid fa-reply"></i>
+                            <span>إرسال الإجابة</span>
+                        </button>
+                    </div>
+
+                    <!-- 3. منظور المتفرج -->
+                    <div id="view-spectator" class="role-view space-y-3 pt-1 hidden">
+                        <div class="space-y-2.5">
+                            <div id="qa-spectator-q-box" class="glass-card p-3 rounded-2xl border-r-4 border-r-cyan-400">
+                                <span class="text-[10px] text-cyan-400 font-bold flex items-center gap-1.5 mb-1">
+                                    <i class="fa-solid fa-microphone"></i>
+                                    <span id="qa-spectator-asker-label">السائل يسأل المجيب:</span>
+                                </span>
+                                <p id="qa-spectator-q-text" class="text-xs font-extrabold text-white">⏳ في انتظار السؤال...</p>
+                            </div>
+
+                            <div id="qa-spectator-a-box" class="glass-card p-3 rounded-2xl border-r-4 border-r-purple-400">
+                                <span class="text-[10px] text-purple-400 font-bold flex items-center gap-1.5 mb-1">
+                                    <i class="fa-solid fa-comment-dots"></i>
+                                    <span id="qa-spectator-respondent-label">المجيب يجيب:</span>
+                                </span>
+                                <p id="qa-spectator-a-text" class="text-xs font-semibold text-slate-200 italic">...في انتظار الرد</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- زر جاهز للجولة التالية (موحد لكل اللاعبين) -->
+                    <div id="qa-next-ready-container" class="hidden mt-2">
+                        <button id="btn-qa-ready-next" class="btn-next-ready w-full py-3.5 rounded-2xl font-bold text-sm bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-400/20 active:scale-95 transition-all flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <span>جاهز للجولة التالية</span>
+                        </button>
+                        <p id="qa-next-ready-status" class="text-xs text-slate-400 text-center mt-2">يجب أن يكون جميع اللاعبين جاهزين للانتقال</p>
+                    </div>
+
+                </div>
+
+                <!-- قسم سجل أسئلة وإجابات الجولات السابقة -->
+                <div class="glass-panel-modern rounded-3xl p-4 shadow-xl space-y-3">
+                    <button onclick="toggleQAHistory()" class="w-full flex items-center justify-between text-xs font-bold text-slate-300 hover:text-white transition history-toggle-btn">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-clock-rotate-left text-cyan-400"></i>
+                            <span>سجل الأسئلة والإجابات (الجولات السابقة)</span>
+                        </div>
+                        <i id="history-arrow" class="fa-solid fa-chevron-down text-slate-500 transition-transform history-arrow"></i>
+                    </button>
+
+                    <!-- محتوى السجل القابل للطي -->
+                    <div id="history-content" class="hidden space-y-3 pt-2 border-t border-slate-800">
+                        <div id="qa-history-list" class="space-y-2">
+                            <div class="text-slate-500 text-xs text-center py-2">لا توجد جولات سابقة</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ===== شاشة التصويت الأونلاين ===== -->
+        <div id="screen-online-voting" class="screen flex-col flex-1 py-4">
+            <div class="glass-panel rounded-3xl p-5 flex flex-col gap-5 flex-1 max-w-4xl mx-auto w-full px-4">
+                <h2 class="font-extrabold text-2xl text-center text-white">🗳️ التصويت السري</h2>
+                <p id="online-voting-instruction" class="text-[#8892a6] text-sm text-center">صوّت على من تعتقد أنه برا السالفة</p>
+                <div id="online-voting-options" class="flex flex-col gap-3 w-full flex-1"></div>
+                <p id="online-voting-status" class="text-[#8892a6] text-xs text-center">⏳ في انتظار تصويت الجميع...</p>
+                <button id="btn-online-voting-done" class="hidden btn-purple w-full text-lg">✅ اكتمل التصويت — اكشف النتيجة</button>
+            </div>
+        </div>
+
+        <!-- ===== شاشة التشويق الأونلاين ===== -->
+        <div id="screen-online-suspense" class="screen flex-col items-center flex-1 justify-center text-center py-4">
+            <div class="glass-panel rounded-3xl p-6 flex flex-col gap-6 items-center w-full max-w-[400px] mx-4 animate-suspense">
+                <h2 id="online-suspense-headline" class="font-extrabold text-2xl text-white">🔮 لحظة الحقيقة...</h2>
+                <div id="online-suspense-content" class="flex flex-col gap-4 w-full"></div>
+                <button id="btn-online-suspense-continue" class="hidden btn-primary text-lg px-8">المتابعة ➡️</button>
+            </div>
+        </div>
+
+        <!-- ===== شاشة فرصة الإنقاذ الأونلاين ===== -->
+        <div id="screen-online-secondchance" class="screen flex-col flex-1 py-4">
+            <div class="glass-panel rounded-3xl p-5 flex flex-col gap-5 flex-1 max-w-4xl mx-auto w-full px-4">
+                <h2 class="font-extrabold text-2xl text-center text-white">🎯 فرصة الإنقاذ!</h2>
+                <p id="online-sc-prompt" class="text-[#8892a6] text-center"></p>
+                <div id="online-sc-options" class="flex flex-col gap-3 w-full flex-1"></div>
+                <button id="btn-online-sc-confirm" class="hidden btn-success w-full text-lg">تأكيد الإجابة ✓</button>
+                <p id="online-sc-result" class="text-[#8892a6] text-xs text-center"></p>
+                <button id="btn-online-sc-next" class="hidden btn-primary w-full text-lg">عرض النتائج →</button>
+            </div>
+        </div>
+
+        <!-- ===== شاشة لوحة المتصدرين الأونلاين ===== -->
+        <div id="screen-online-leaderboard" class="screen flex-col flex-1 py-4">
+            <div class="glass-panel rounded-3xl p-5 flex flex-col gap-5 flex-1 max-w-4xl mx-auto w-full px-4">
+                <h2 id="online-lb-headline" class="font-extrabold text-2xl text-center text-white"><i class="fa-solid fa-trophy text-yellow-400 ml-2"></i> النتائج النهائية</h2>
+                <div id="online-lb-content" class="flex flex-col gap-4 w-full flex-1 overflow-y-auto"></div>
+                <div class="flex flex-col gap-3">
+                    <button id="btn-online-lb-newround" class="btn-primary w-full text-lg"><i class="fa-solid fa-rotate ml-2"></i> جولة جديدة</button>
+                    <button id="btn-online-lb-leave" class="btn-secondary w-full"><i class="fa-solid fa-right-from-bracket text-rose-400 ml-2"></i> مغادرة الغرفة</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== شاشات اللعبة المحلية ===== -->
+        <div id="screen-secret" class="screen flex-col items-center flex-1 justify-center text-center py-4">
+            <div class="glass-panel rounded-3xl p-6 flex flex-col gap-6 items-center w-full max-w-[400px] mx-4">
+                <h3 id="secret-title" class="font-extrabold text-xl text-white">📱 مرر الهاتف إلى...</h3>
+                <p id="secret-player-name" class="text-2xl font-extrabold text-white"></p>
+                <p class="text-[#8892a6] text-xs">🔒 تأكد من عدم رؤية أحد آخر للشاشة</p>
+                <div id="reveal-scene-container" class="reveal-scene mx-auto"></div>
+                <button id="btn-secret-next" class="hidden btn-primary text-lg px-8 flex items-center gap-2">التالي ←</button>
+                <p id="secret-progress" class="text-[#8892a6] text-xs"></p>
+            </div>
+        </div>
+
+        <div id="screen-questioning" class="screen flex-col items-center flex-1 justify-center text-center py-4">
+            <div class="glass-panel rounded-3xl p-6 flex flex-col gap-6 items-center w-full max-w-[400px] mx-4">
+                <h2 class="font-extrabold text-2xl text-white">🎤 مرحلة الأسئلة</h2>
+                <span id="q-round-badge" class="bg-yellow-500/15 text-yellow-400 font-bold text-base px-4 py-1 rounded-full">الجولة 1 من 7</span>
+                <div id="q-asker-row" class="flex items-center justify-center gap-4 flex-wrap font-bold text-white">
+                    <span id="q-asker-badge" class="bg-white/4 border-2 border-white/10 rounded-2xl px-5 py-3 flex items-center gap-3 font-extrabold"></span>
+                    <span class="text-2xl text-yellow-400">⬅️</span>
+                    <span id="q-target-badge" class="bg-white/4 border-2 border-white/10 rounded-2xl px-5 py-3 flex items-center gap-3 font-extrabold"></span>
+                </div>
+                <p id="q-prompt" class="text-xl font-bold text-yellow-400"></p>
+                <button id="btn-q-next" class="btn-primary text-lg px-8 flex items-center gap-2">السؤال التالي <i data-lucide="arrow-left" class="w-4 h-4"></i></button>
+                <button id="btn-q-to-vote" class="hidden btn-purple text-lg px-8 flex items-center gap-2">🗳️ الانتقال للتصويت</button>
+            </div>
+        </div>
+
+        <div id="screen-voting" class="screen flex-col items-center flex-1 justify-center text-center py-4">
+            <div class="glass-panel rounded-3xl p-6 flex flex-col gap-6 items-center w-full max-w-[400px] mx-4">
+                <h2 class="font-extrabold text-2xl text-white">🗳️ التصويت السري</h2>
+                <p id="voting-voter-name" class="text-xl font-extrabold text-white"></p>
+                <p class="text-[#8892a6] text-xs">🔒 مرر الهاتف — كل لاعب يصوّت بسرية</p>
+                <div id="voting-options" class="flex flex-col gap-3 w-full max-w-[300px] self-center"></div>
+                <p id="voting-progress" class="text-[#8892a6] text-xs"></p>
+                <button id="btn-voting-done" class="hidden btn-purple text-lg px-8 flex items-center gap-2">✅ اكتمل التصويت — اكشف النتيجة</button>
+            </div>
+        </div>
+
+        <div id="screen-suspense" class="screen flex-col items-center flex-1 justify-center text-center py-4">
+            <div class="glass-panel rounded-3xl p-6 flex flex-col gap-6 items-center w-full max-w-[400px] mx-4 animate-suspense">
+                <h2 id="suspense-headline" class="font-extrabold text-2xl text-white">🔮 لحظة الحقيقة...</h2>
+                <div id="suspense-content" class="flex flex-col gap-4 w-full"></div>
+            </div>
+        </div>
+
+        <div id="screen-secondchance" class="screen flex-col items-center flex-1 justify-center text-center py-4">
+            <div class="glass-panel rounded-3xl p-6 flex flex-col gap-6 items-center w-full max-w-[400px] mx-4">
+                <h2 class="font-extrabold text-2xl text-white">🎯 فرصة الإنقاذ!</h2>
+                <p id="sc-prompt" class="text-[#8892a6]"></p>
+                <p class="font-extrabold text-yellow-400">ما هي الكلمة السرية الحقيقية؟</p>
+                <div id="sc-options" class="flex flex-col gap-3 w-full max-w-[300px] self-center"></div>
+                <button id="btn-sc-confirm" class="hidden btn-success text-lg px-8">تأكيد الإجابة ✓</button>
+                <p id="sc-result" class="text-[#8892a6] text-xs"></p>
+                <button id="btn-sc-next" class="hidden btn-primary text-lg px-8">عرض النتائج ←</button>
+            </div>
+        </div>
+
+        <div id="screen-leaderboard" class="screen flex-col flex-1 py-4">
+            <div class="glass-panel rounded-3xl p-5 flex flex-col gap-5 flex-1 max-w-4xl mx-auto w-full px-4">
+                <h2 id="lb-headline" class="font-extrabold text-2xl text-center text-white"><i class="fa-solid fa-trophy text-yellow-400 ml-2"></i> النتائج النهائية</h2>
+                <div id="lb-content" class="flex flex-col gap-4 w-full flex-1 overflow-y-auto"></div>
+                <button id="btn-new-round" class="btn-primary w-full text-lg"><i class="fa-solid fa-rotate ml-2"></i> جولة جديدة</button>
+                <button id="btn-end-game" class="btn-secondary w-full text-lg"><i class="fa-solid fa-house ml-2"></i> القائمة الرئيسية</button>
+            </div>
+        </div>
+
+        <div id="screen-newround" class="screen flex-col flex-1 py-4">
+            <div class="glass-panel rounded-3xl p-5 flex flex-col gap-5 flex-1 max-w-4xl mx-auto w-full px-4">
+                <h3 class="font-extrabold text-2xl text-center text-white"><i class="fa-solid fa-rotate text-cyan-400 ml-2"></i> اختر فئة الجولة الجديدة</h3>
+                <div id="newround-cat-grid" class="grid-auto-fill"></div>
+                <div>
+                    <p class="font-bold text-sm text-white mb-3"><i class="fa-solid fa-sliders-h text-purple-400 ml-2"></i> الوضع:</p>
+                    <div class="flex flex-col gap-3" id="newround-mode-selector">
+                        <div class="mode-card" data-mode="traditional">
+                            <span class="text-2xl"><i class="fa-solid fa-masks-theater text-cyan-400"></i></span>
+                            <span class="font-extrabold">تقليدي</span>
+                            <span class="text-[#8892a6] text-xs">لاعب واحد لا يعرف الكلمة</span>
+                        </div>
+                        <div class="mode-card" data-mode="mindbending">
+                            <span class="text-2xl"><i class="fa-solid fa-brain text-purple-400"></i></span>
+                            <span class="font-extrabold">ذهني</span>
+                            <span class="text-[#8892a6] text-xs">لاعب واحد يحصل على كلمة مختلفة</span>
+                        </div>
+                    </div>
+                </div>
+                <button id="btn-newround-start" class="btn-primary w-full text-lg disabled:opacity-30 disabled:grayscale disabled:pointer-events-none" disabled><i class="fa-solid fa-rocket ml-2"></i> ابدأ الجولة الجديدة</button>
+                <button id="btn-newround-cancel" class="btn-secondary w-full"><i class="fa-solid fa-xmark ml-2"></i> إلغاء والعودة للنتائج</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ===== مودال الملف الشخصي ===== -->
+    <div id="profile-modal">
+        <div class="profile-modal-overlay">
+            <div class="profile-modal-content">
+                <div class="profile-header-bg">
+                    <button class="profile-close-btn" id="profile-close-btn">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+
+                    <div class="profile-avatar-container">
+                        <div class="profile-avatar-ring">
+                            <div class="profile-avatar-main" id="profile-avatar-main">
+                                <span id="profile-avatar-letter-lg">👤</span>
+                            </div>
+                        </div>
+                        <div class="profile-status-badge" id="profile-status-badge">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <span id="profile-status-text-short">مسجل</span>
+                        </div>
+                    </div>
+
+                    <h2 class="profile-display-name" id="profile-display-name">زائر</h2>
+                    <p class="profile-user-handle" id="profile-user-handle">@زائر</p>
+                </div>
+
+                <div class="profile-body">
+                    <div id="profile-message-container">
+                        <div id="profile-message" class="profile-msg hidden"></div>
+                    </div>
+
+                    <div class="profile-info-card">
+                        <div class="profile-info-item">
+                            <i class="fa-regular fa-envelope"></i>
+                            <div>
+                                <span class="profile-info-label">اسم المستخدم</span>
+                                <div class="profile-info-value-group">
+                                    <input id="profile-edit-name" class="profile-input" type="text" placeholder="الاسم الجديد" maxlength="20" />
+                                    <button id="profile-update-name" class="profile-action-btn cyan">
+                                        <i class="fa-regular fa-pen-to-square"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="profile-section">
+                        <div class="profile-section-header">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            <span>الأمان وكلمة المرور</span>
+                        </div>
+
+                        <div class="profile-password-fields">
+                            <div class="profile-input-group">
+                                <i class="fa-solid fa-lock"></i>
+                                <input id="profile-old-password" class="profile-input" type="password" placeholder="كلمة المرور الحالية" />
+                                <button class="profile-password-toggle" onclick="togglePasswordVisibility('profile-old-password', this)">
+                                    <i class="fa-regular fa-eye"></i>
+                                </button>
+                            </div>
+
+                            <div class="profile-input-group">
+                                <i class="fa-solid fa-key"></i>
+                                <input id="profile-new-password" class="profile-input" type="password" placeholder="كلمة المرور الجديدة" />
+                                <button class="profile-password-toggle" onclick="togglePasswordVisibility('profile-new-password', this)">
+                                    <i class="fa-regular fa-eye"></i>
+                                </button>
+                            </div>
+
+                            <div class="profile-input-group">
+                                <i class="fa-solid fa-check-double"></i>
+                                <input id="profile-confirm-password" class="profile-input" type="password" placeholder="تأكيد كلمة المرور" />
+                                <button class="profile-password-toggle" onclick="togglePasswordVisibility('profile-confirm-password', this)">
+                                    <i class="fa-regular fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button id="profile-change-password" class="profile-primary-btn purple">
+                            <i class="fa-solid fa-rotate"></i>
+                            تغيير كلمة المرور
+                        </button>
+                    </div>
+
+                    <div class="profile-actions">
+                        <button id="profile-logout" class="profile-danger-btn">
+                            <i class="fa-solid fa-right-from-bracket"></i>
+                            تسجيل الخروج
+                        </button>
+                    </div>
+
+                    <div class="profile-footer">
+                        <span class="profile-version">برا السالفة v12.0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== زر المشاركة العائم ===== -->
+    <div id="share-fab" class="hidden">
+        <button id="btn-share-toggle" title="مشاركة الغرفة">
+            <i class="fa-solid fa-share-nodes"></i>
+        </button>
+    </div>
+
+    <!-- ===== نافذة المشاركة المنبثقة ===== -->
+    <div id="share-modal">
+        <div class="share-box">
+            <div class="share-header">
+                <h3><i class="fa-solid fa-users"></i> دعوة الأصدقاء</h3>
+                <button class="share-close" id="btn-share-close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="code-box">
+                <div class="label">
+                    <i class="fa-solid fa-key"></i>
+                    كود الغرفة
+                </div>
+                <div class="code-row">
+                    <span id="share-room-code">000000</span>
+                    <button id="btn-share-copy-code">
+                        <i class="fa-regular fa-copy"></i> نسخ
+                    </button>
+                </div>
+            </div>
+
+            <div class="social-grid">
+                <button onclick="shareTo('whatsapp')">
+                    <i class="fa-brands fa-whatsapp" style="color:#25D366;"></i>
+                    <span>واتساب</span>
+                </button>
+                <button onclick="shareTo('twitter')">
+                    <i class="fa-brands fa-x-twitter" style="color:#1DA1F2;"></i>
+                    <span>تويتر</span>
+                </button>
+                <button onclick="shareTo('discord')">
+                    <i class="fa-brands fa-discord" style="color:#5865F2;"></i>
+                    <span>ديسكورد</span>
+                </button>
+                <button onclick="shareTo('telegram')">
+                    <i class="fa-brands fa-telegram" style="color:#26A5E4;"></i>
+                    <span>تيليجرام</span>
+                </button>
+            </div>
+
+            <button class="share-copy-main" id="btn-share-copy-main">
+                <i class="fa-regular fa-copy"></i>
+                نسخ رابط الدعوة
+            </button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+
+</body>
+</html>
